@@ -1,0 +1,300 @@
+:root {
+    font-family: Arial, Helvetica, sans-serif;
+    --green: #1db954;
+    --gray: #eee;
+    --dark-gray: #333;
+    --light-gray: #f8f9fa;
+    --border: #ddd;
+}
+
+body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #fafafa;
+    position: relative;
+}
+
+header {
+    background: #fff;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .05);
+    position: relative;
+    z-index: 100;
+}
+
+header h1 {
+    font-size: 1.15rem;
+    margin: 0;
+    flex: 1;
+}
+
+button {
+    padding: .6rem 1rem;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    background: var(--green);
+    cursor: pointer;
+    font-size: .9rem;
+    transition: all .2s;
+}
+
+button[disabled] {
+    opacity: .5;
+    cursor: default;
+}
+
+button:hover:not([disabled]) {
+    background: #159f42;
+    transform: translateY(-1px);
+}
+
+select {
+    padding: .45rem .6rem;
+    border-radius: 6px;
+    border: 1px solid #bbb;
+    font-size: .9rem;
+}
+
+.settings-btn {
+    background: var(--dark-gray) !important;
+    padding: .6rem !important;
+    width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-btn:hover {
+    background: #555 !important;
+}
+
+#zone {
+    flex: 1;
+    overflow: auto;
+    padding: 1rem;
+    transition: margin-right .3s ease;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: .45rem .6rem;
+    text-align: left;
+}
+
+tr:nth-child(odd) {
+    background: #fff;
+}
+
+tr:nth-child(even) {
+    background: #f3f7f3;
+}
+
+img {
+    width: 48px;
+    height: 48px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.actions button {
+    border: none;
+    border-radius: 6px;
+    font-size: .8rem;
+    padding: .35rem .7rem;
+    margin-right: .4rem;
+    cursor: pointer;
+}
+
+.xbtn {
+    background: #e65555;
+    color: #fff;
+}
+
+.dlbtn {
+    background: var(--green);
+    color: #fff;
+}
+
+.placeholder {
+    border: 2px dashed #bbb;
+    border-radius: 12px;
+    padding: 3rem;
+    text-align: center;
+    color: #666;
+    max-width: 460px;
+    margin: 4rem auto;
+}
+
+progress {
+    width: 100%;
+    height: 6px;
+    appearance: none;
+}
+
+progress::-webkit-progress-bar {
+    background: var(--gray);
+}
+
+progress::-webkit-progress-value {
+    background: var(--green);
+}
+
+/* Sidebar Styles */
+.sidebar {
+    position: fixed;
+    top: 0;
+    right: -350px;
+    width: 350px;
+    height: 100vh;
+    background: #fff;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, .1);
+    transition: right .3s ease;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar.open {
+    right: 0;
+}
+
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sidebar-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--dark-gray);
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #999;
+    padding: .5rem;
+}
+
+.close-btn:hover {
+    color: var(--dark-gray);
+}
+
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+
+.setting-group {
+    margin-bottom: 2rem;
+}
+
+.setting-group h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    color: var(--dark-gray);
+    font-weight: 600;
+}
+
+.setting-group label {
+    display: block;
+    margin-bottom: .5rem;
+    font-size: .9rem;
+    color: #666;
+}
+
+.setting-group select, .setting-group input {
+    width: 100%;
+    padding: .6rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: .9rem;
+    background: #fff;
+}
+
+.setting-group input[type="radio"], .setting-group input[type="checkbox"] {
+    width: auto;
+    margin-right: .5rem;
+}
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    padding: .5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background .2s;
+}
+
+.radio-option:hover {
+    background: var(--light-gray);
+}
+
+.radio-option input {
+    margin-right: .75rem;
+}
+
+.sidebar-footer {
+    padding: 1.5rem;
+    border-top: 1px solid var(--border);
+}
+
+.apply-btn {
+    width: 100%;
+    padding: .8rem;
+    background: var(--green);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background .2s;
+}
+
+.apply-btn:hover {
+    background: #159f42;
+}
+
+.zone-shifted {
+    margin-right: 350px;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, .5);
+    z-index: 150;
+    opacity: 0;
+    visibility: hidden;
+    transition: all .3s;
+}
+
+.overlay.show {
+    opacity: 1;
+    visibility: visible;
+}

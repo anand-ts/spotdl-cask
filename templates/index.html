@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang='en'>
+<head>
+    <meta charset='utf-8'/>
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>{{ app_name }}</h1>
+        <button id='allBtn' onclick='dlAll()' disabled>Download All</button>
+        <button class='settings-btn' onclick='toggleSettings()' title='Settings'>⚙️</button>
+    </header>
+    
+    <div id='zone'>
+        <div id='ph' class='placeholder'>
+            Paste Spotify / YouTube links (⌘V / Ctrl+V)<br>
+            Separate with space, comma, or newline.
+        </div>
+        <table id='tbl' style='display:none'>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Title</th>
+                    <th>Artist</th>
+                    <th>Album</th>
+                    <th>Status</th>
+                    <th class='actions'>Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    
+    <div class='overlay' id='overlay' onclick='closeSettings()'></div>
+    <div class='sidebar' id='sidebar'>
+        <div class='sidebar-header'>
+            <h2>Download Settings</h2>
+            <button class='close-btn' onclick='closeSettings()'>×</button>
+        </div>
+        <div class='sidebar-content'>
+            <div class='setting-group'>
+                <h3>Audio Quality</h3>
+                <div class='radio-group'>
+                    <label class='radio-option'>
+                        <input type='radio' name='quality' value='best' checked>
+                        Best Available (Auto)
+                    </label>
+                    <label class='radio-option'>
+                        <input type='radio' name='quality' value='320k'>
+                        320 kbps
+                    </label>
+                    <label class='radio-option'>
+                        <input type='radio' name='quality' value='256k'>
+                        256 kbps
+                    </label>
+                    <label class='radio-option'>
+                        <input type='radio' name='quality' value='192k'>
+                        192 kbps
+                    </label>
+                    <label class='radio-option'>
+                        <input type='radio' name='quality' value='128k'>
+                        128 kbps
+                    </label>
+                    <label class='radio-option'>
+                        <input type='radio' name='quality' value='disable'>
+                        Original Quality (No conversion)
+                    </label>
+                </div>
+            </div>
+            
+            <div class='setting-group'>
+                <h3>File Format</h3>
+                <select id='formatSel'>
+                    <option value='mp3' selected>MP3</option>
+                    <option value='flac'>FLAC</option>
+                    <option value='m4a'>M4A</option>
+                    <option value='opus'>OPUS</option>
+                    <option value='ogg'>OGG</option>
+                    <option value='wav'>WAV</option>
+                </select>
+            </div>
+            
+            <div class='setting-group'>
+                <h3>Output Options</h3>
+                <label>Filename Template</label>
+                <select id='outputSel'>
+                    <option value='{artists} - {title}.{output-ext}' selected>Artist - Title</option>
+                    <option value='{title} - {artists}.{output-ext}'>Title - Artist</option>
+                    <option value='{album}/{track-number}. {title}.{output-ext}'>Album/Track. Title</option>
+                    <option value='{artist}/{album}/{track-number}. {title}.{output-ext}'>Artist/Album/Track. Title</option>
+                </select>
+            </div>
+            
+            <div class='setting-group'>
+                <h3>Advanced</h3>
+                <label>
+                    <input type='checkbox' id='playlistNumbering'> 
+                    Playlist numbering
+                </label>
+                <br><br>
+                <label>
+                    <input type='checkbox' id='skipExplicit'> 
+                    Skip explicit content
+                </label>
+                <br><br>
+                <label>
+                    <input type='checkbox' id='generateLrc'> 
+                    Generate LRC lyrics files
+                </label>
+            </div>
+        </div>
+        <div class='sidebar-footer'>
+            <button class='apply-btn' onclick='applySettings()'>Apply Settings</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
