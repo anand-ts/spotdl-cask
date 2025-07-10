@@ -30,6 +30,7 @@ PORT = 5001
 try:
     from spotdl.utils.spotify import SpotifyClient  # type: ignore
     from spotdl.types.song import Song  # type: ignore
+    from spotdl.utils.config import get_config  # type: ignore
 except ImportError as e:
     raise SystemExit("spotdl>=4 must be installed: pip install spotdl") from e
 
@@ -38,12 +39,21 @@ _sp_ready = False
 def _ensure_sp_client():
     global _sp_ready
     if not _sp_ready:
+        # Load config from SpotDL's config file
+        config = get_config()
+        client_id = config.get("client_id", "")
+        client_secret = config.get("client_secret", "")
+        if not client_id or not client_secret:
+            raise RuntimeError("SpotDL config file missing valid Spotify credentials")
         SpotifyClient.init(
-            client_id="f8a606e5583643beaa27ce62c48e3fc1",
-            client_secret="f6f4c8f73f0649939286cf417c811607",
-            user_auth=False,
+            client_id=client_id,
+            client_secret=client_secret,
+            user_auth=config.get("user_auth", False),
+            cache_path=config.get("cache_path"),
+            no_cache=config.get("no_cache", False),
         )
         _sp_ready = True
+
 
 # --------------------------- Flask -------------------------------
 app = Flask(__name__)
