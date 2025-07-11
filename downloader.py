@@ -3,6 +3,7 @@
 import subprocess
 import threading
 import re
+import os
 from typing import Dict, Any, Optional
 from pathlib import Path
 
@@ -19,15 +20,104 @@ class DownloadManager:
         self.status: Dict[str, str] = {}  # link -> idle|downloading|done|error
         self.progress: Dict[str, float] = {}  # link -> progress percentage (0-100)
         self.progress_callbacks: Dict[str, list] = {}  # link -> list of callback functions
+        self.downloaded_files: Dict[str, str] = {}  # link -> actual filename that was downloaded
     
     def get_status(self, links: list[str]) -> Dict[str, str]:
-        """Get status for multiple links."""
-        return {link: self.status.get(link, "idle") for link in links}
+        """Get status for multiple links with file existence check."""
+        result = {}
+        for link in links:
+            cached_status = self.status.get(link, "idle")
+            
+            # If status is "done", verify the file actually exists
+            if cached_status == "done":
+                if self._check_file_exists(link):
+                    result[link] = "done"
+                else:
+                    # File was deleted, reset status
+                    self.status[link] = "idle"
+                    result[link] = "idle"
+                    if DEBUG_OUTPUT:
+                        print(f"DEBUG - File not found for {link}, resetting status to idle")
+            else:
+                result[link] = cached_status
+                
+        return result
     
     def get_progress(self, link: str) -> float:
         """Get current progress for a link (0-100)."""
         return self.progress.get(link, 0.0)
     
+    def _check_file_exists(self, link: str) -> bool:
+        """Check if downloaded file still exists on disk."""
+        # If we have the exact filename stored, check that
+        if link in self.downloaded_files:
+            file_path = DOWNLOAD_DIR / self.downloaded_files[link]
+            exists = file_path.exists()
+            if DEBUG_OUTPUT and not exists:
+                print(f"DEBUG - Stored file not found: {file_path}")
+            return exists
+        
+        # Otherwise, search for any music files that could be from this link
+        # This is a fallback for files downloaded before we started tracking filenames
+        if not DOWNLOAD_DIR.exists():
+            return False
+            
+        # Look for common music file extensions
+        music_extensions = ['.mp3', '.flac', '.m4a', '.opus', '.ogg', '.wav']
+        
+        # Simple heuristic: if there are recent music files, assume some download happened
+        # This is not perfect but better than always showing "downloaded" for deleted files
+        try:
+            music_files = []
+            for ext in music_extensions:
+                music_files.extend(DOWNLOAD_DIR.glob(f"*{ext}"))
+            
+            # If no music files exist at all, definitely not downloaded
+            if not music_files:
+                if DEBUG_OUTPUT:
+                    print(f"DEBUG - No music files found in {DOWNLOAD_DIR}")
+                return False
+                
+            # More sophisticated check could involve parsing the link to get track info
+            # and searching for matching filenames, but that's complex
+            # For now, we'll be conservative and reset status when in doubt
+            return False  # Conservative: assume file doesn't exist if we can't verify
+            
+        except Exception as e:
+            if DEBUG_OUTPUT:
+                print(f"DEBUG - Error checking files: {e}")
+            return False
+    
+    def _store_downloaded_filename(self, link: str, settings: Dict[str, Any]) -> None:
+        """Try to determine and store the filename that was downloaded."""
+        try:
+            # Get the most recently modified music file in the download directory
+            if not DOWNLOAD_DIR.exists():
+                return
+                
+            music_extensions = ['.mp3', '.flac', '.m4a', '.opus', '.ogg', '.wav']
+            music_files = []
+            
+            for ext in music_extensions:
+                music_files.extend(DOWNLOAD_DIR.glob(f"*{ext}"))
+            
+            if not music_files:
+                return
+                
+            # Find the most recently modified file (likely the one just downloaded)
+            newest_file = max(music_files, key=lambda f: f.stat().st_mtime)
+            
+            # Store relative filename
+            relative_path = newest_file.relative_to(DOWNLOAD_DIR)
+            self.downloaded_files[link] = str(relative_path)
+            
+            if DEBUG_OUTPUT:
+                print(f"DEBUG - Stored filename for {link}: {relative_path}")
+                
+        except Exception as e:
+            if DEBUG_OUTPUT:
+                print(f"DEBUG - Could not determine downloaded filename: {e}")
+     
     def add_progress_callback(self, link: str, callback):
         """Add a callback function to be called when progress updates."""
         if link not in self.progress_callbacks:
@@ -315,6 +405,9 @@ class DownloadManager:
                 # Smooth transition to 100%
                 if last_progress < 100:
                     self._update_progress(link, 100.0)
+                
+                # Try to determine what file was downloaded
+                self._store_downloaded_filename(link, settings)
                 print(f"Successfully downloaded: {link}")
             else:
                 self.status[link] = "error"
