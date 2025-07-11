@@ -42,6 +42,8 @@ button {
     cursor: pointer;
     font-size: .9rem;
     transition: all .2s;
+    position: relative;
+    overflow: hidden;
 }
 
 button[disabled] {
@@ -52,6 +54,35 @@ button[disabled] {
 button:hover:not([disabled]) {
     background: #159f42;
     transform: translateY(-1px);
+}
+
+button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    transition: left 0.5s;
+}
+
+button:hover::before {
+    left: 100%;
+}
+
+button:focus {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible) {
+    outline: none;
 }
 
 select {
@@ -115,12 +146,18 @@ img {
     object-fit: cover;
 }
 
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .actions button {
     border: none;
     border-radius: 6px;
     font-size: .8rem;
     padding: .5rem;
-    margin-right: .4rem;
+    margin: 0;
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
@@ -128,6 +165,7 @@ img {
     justify-content: center;
     width: 32px;
     height: 32px;
+    flex-shrink: 0;
 }
 
 .actions button:hover {
@@ -427,4 +465,310 @@ progress::-webkit-progress-value {
 
 #allBtn:hover:not([disabled]) svg {
     transform: translateY(1px);
+}
+
+/* Loading States */
+.loading-row {
+    opacity: 0.7;
+    background: linear-gradient(90deg, #f8f9fa 25%, #e9ecef 50%, #f8f9fa 75%);
+    background-size: 200% 100%;
+    animation: loading-shimmer 1.5s infinite;
+}
+
+.loading-row .title-cell,
+.loading-row .artist-cell,
+.loading-row .album-cell {
+    color: #999;
+    font-style: italic;
+}
+
+.loading-row .status-icon.loading {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes loading-shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Legacy skeleton styles (can be removed if not used elsewhere) */
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.skeleton-row {
+    opacity: 0.7;
+}
+
+.skeleton-image {
+    width: 48px;
+    height: 48px;
+    background: #e0e0e0;
+}
+
+.skeleton-text {
+    height: 16px;
+    background: #e0e0e0;
+    margin: 4px 0;
+}
+
+.skeleton-text.short {
+    width: 60%;
+}
+
+.skeleton-text.medium {
+    width: 80%;
+}
+
+.skeleton-text.long {
+    width: 100%;
+}
+
+/* Enhanced Progress Indicators */
+.progress-wrapper {
+    position: relative;
+    width: 100%;
+    height: 8px;
+    background: var(--gray);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), #22c55e);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    position: relative;
+}
+
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+    );
+    animation: progress-shine 2s infinite;
+}
+
+@keyframes progress-shine {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 300px;
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast.success {
+    border-left: 4px solid var(--green);
+}
+
+.toast.error {
+    border-left: 4px solid #f44336;
+}
+
+.toast.info {
+    border-left: 4px solid #2196F3;
+}
+
+.toast-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.toast-message {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #999;
+    border-radius: 4px;
+}
+
+.toast-close:hover {
+    background: #f5f5f5;
+    color: #666;
+}
+
+/* Enhanced Button States */
+button {
+    position: relative;
+    overflow: hidden;
+}
+
+button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    transition: left 0.5s;
+}
+
+button:hover::before {
+    left: 100%;
+}
+
+button:focus {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* Enhanced Form Focus States */
+input:focus,
+select:focus {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+    border-color: var(--green);
+}
+
+input:focus:not(:focus-visible),
+select:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* Drag and Drop Enhancement */
+.drop-zone {
+    transition: all 0.3s ease;
+}
+
+.drop-zone.drag-over {
+    border-color: var(--green);
+    background: rgba(29, 185, 84, 0.05);
+    transform: scale(1.02);
+}
+
+.drop-zone.drag-over::after {
+    content: 'Drop your Spotify links here';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--green);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(29, 185, 84, 0.3);
+}
+
+/* Improved Table Hover States */
+tbody tr {
+    transition: all 0.2s ease;
+}
+
+tbody tr:hover {
+    background: rgba(29, 185, 84, 0.05) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.loading-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.loading-spinner-large {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--green);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Force cache refresh */
+body {
+    position: relative;
 }

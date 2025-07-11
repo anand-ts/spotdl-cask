@@ -25,23 +25,31 @@
     </header>
     
     <div id='zone'>
-        <div id='ph' class='placeholder'>
+        <div id='ph' class='placeholder drop-zone'>
             Paste Spotify / YouTube links (⌘V / Ctrl+V)<br>
             Separate with space, comma, or newline.
         </div>
         <table id='tbl' style='display:none'>
             <thead>
                 <tr>
-                    <th></th>
-                    <th>Title</th>
-                    <th>Artist</th>
-                    <th>Album</th>
-                    <th>Status</th>
-                    <th class='actions'>Actions</th>
+                    <th class="cover-header"></th>
+                    <th class="title-header">Title</th>
+                    <th class="artist-header">Artist</th>
+                    <th class="album-header">Album</th>
+                    <th class="status-header">Status</th>
+                    <th class="actions-header">Actions</th>
                 </tr>
             </thead>
             <tbody></tbody>
         </table>
+    </div>
+    
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner-large"></div>
     </div>
     
     <div class='overlay' id='overlay' onclick='closeSettings()'></div>
