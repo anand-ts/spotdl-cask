@@ -2,6 +2,7 @@
 const tblBody = document.querySelector('#tbl tbody');
 const ph = document.getElementById('ph');
 const allBtn = document.getElementById('allBtn');
+const removeAllBtn = document.getElementById('removeAllBtn');
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const zone = document.getElementById('zone');
@@ -55,6 +56,7 @@ function addRow(link) {
     ph.style.display = 'none';
     document.getElementById('tbl').style.display = 'table';
     allBtn.disabled = false;
+    removeAllBtn.disabled = false;
     
     // Add entrance animation
     requestAnimationFrame(() => {
@@ -260,6 +262,7 @@ function rmRow(l) {
                 ph.style.display = 'block';
                 document.getElementById('tbl').style.display = 'none';
                 allBtn.disabled = true;
+                removeAllBtn.disabled = true;
             }
             
             showToast(`Removed: ${trackTitle}`, 'info', 2000);
@@ -397,6 +400,7 @@ function dlAll() {
         Downloading…
     `;
     allBtn.disabled = true;
+    removeAllBtn.disabled = true;
     
     // Re-enable button after all downloads complete (estimated)
     setTimeout(() => {
@@ -409,7 +413,18 @@ function dlAll() {
             Download All
         `;
         allBtn.disabled = false;
+        removeAllBtn.disabled = false;
     }, linkCount * 3000); // Rough estimate
+}
+
+function removeAllTracks() {
+    const linkCount = Object.keys(rows).length;
+    if (linkCount === 0) return;
+    
+    showToast(`Removing all ${linkCount} track${linkCount > 1 ? 's' : ''}...`, 'info', 2000);
+    
+    // Remove all rows with animation
+    Object.keys(rows).forEach(link => rmRow(link));
 }
 
 // Settings Management
@@ -493,6 +508,7 @@ setInterval(() => {
                     Download All
                 `;
                 allBtn.disabled = false;
+                removeAllBtn.disabled = false;
             }
         });
 }, 2000);
@@ -652,6 +668,7 @@ function clearAllRows() {
     ph.style.display = 'block';
     document.getElementById('tbl').style.display = 'none';
     allBtn.disabled = true;
+    removeAllBtn.disabled = true;
     showToast('Cleared all tracks', 'info', 2000);
 }
 

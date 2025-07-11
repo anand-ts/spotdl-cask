@@ -526,6 +526,25 @@ progress::-webkit-progress-value {
     transform: translateY(1px);
 }
 
+#removeAllBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #f44336 !important;
+}
+
+#removeAllBtn:hover:not([disabled]) {
+    background: #d32f2f !important;
+}
+
+#removeAllBtn svg {
+    transition: transform 0.2s ease;
+}
+
+#removeAllBtn:hover:not([disabled]) svg {
+    transform: scale(1.05);
+}
+
 /* Loading States */
 .loading-row {
     opacity: 0.7;
