@@ -135,14 +135,14 @@ th, td {
 
 /* Fixed column widths to prevent shifting */
 .cover-header, .cover-cell {
-    width: 80px;
-    min-width: 80px;
-    max-width: 80px;
+    width: 90px;
+    min-width: 90px;
+    max-width: 90px;
 }
 
 .title-header, .title-cell {
-    width: 35%;
-    min-width: 200px;
+    width: 30%;
+    min-width: 180px;
 }
 
 .artist-header, .artist-cell {
@@ -158,6 +158,22 @@ th, td {
 .status-header, .status-cell {
     width: 15%;
     min-width: 100px;
+}
+
+.status-cell .status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-cell .status.downloading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+}
+
+.status-cell .status.downloading .status-icon {
+    display: none;
 }
 
 .actions-header, .actions-cell {
@@ -289,31 +305,27 @@ progress::-webkit-progress-value {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
+    width: 16px;
+    height: 16px;
     transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
 .status-icon.idle {
     color: #999;
-    background: rgba(153, 153, 153, 0.1);
 }
 
 .status-icon.downloading {
     color: #2196F3;
-    background: rgba(33, 150, 243, 0.1);
     animation: pulse 1.5s ease-in-out infinite;
 }
 
 .status-icon.completed {
     color: var(--green);
-    background: rgba(29, 185, 84, 0.1);
 }
 
 .status-icon.error {
     color: #f44336;
-    background: rgba(244, 67, 54, 0.1);
 }
 
 .status-text {

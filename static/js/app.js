@@ -115,10 +115,12 @@ function createRowElement(link, data) {
         <td class="artist-cell">${data.artist}</td>
         <td class="album-cell">${data.album}</td>
         <td class="status-cell">
-            <span class="status-icon ${data.status}">
-                ${getStatusIcon(data.status)}
-            </span>
-            <span class="status-text">${getStatusText(data.status)}</span>
+            <div class="status ${data.status}">
+                <span class="status-icon ${data.status}">
+                    ${getStatusIcon(data.status)}
+                </span>
+                <span class="status-text">${getStatusText(data.status)}</span>
+            </div>
         </td>
         <td class="actions-cell">
             <button class="dlbtn" onclick="dlOne('${link}')" title="Download">
@@ -172,6 +174,12 @@ function updateRowData(link, data) {
         statusIcon.innerHTML = getStatusIcon(data.status);
         statusText.textContent = getStatusText(data.status);
         
+        // Update status container class for special downloading layout
+        const statusContainer = row.querySelector('.status');
+        if (statusContainer) {
+            statusContainer.className = `status ${data.status}`;
+        }
+        
         // Remove loading class if present
         row.classList.remove('loading-row');
     }
@@ -180,26 +188,29 @@ function updateRowData(link, data) {
 // Get status icon SVG
 function getStatusIcon(status) {
     const icons = {
-        loading: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        loading: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 12a9 9 0 11-6.219-8.56"></path>
                   </svg>`,
-        idle: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M8 12h8"></path>
+        idle: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <circle cx="12" cy="2" r="1"></circle>
+                <circle cx="12" cy="22" r="1"></circle>
+                <circle cx="2" cy="12" r="1"></circle>
+                <circle cx="22" cy="12" r="1"></circle>
               </svg>`,
-        downloading: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                       <polyline points="7,10 12,15 17,10"></polyline>
-                       <line x1="12" y1="15" x2="12" y2="3"></line>
+        downloading: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                       <path d="M12 2v6m0 4v10"></path>
+                       <path d="m8 18 4 4 4-4"></path>
+                       <circle cx="12" cy="8" r="2"></circle>
                      </svg>`,
-        completed: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                     <polyline points="22,4 12,14.01 9,11.01"></polyline>
+        completed: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                     <circle cx="12" cy="12" r="10"></circle>
+                     <path d="m9 12 2 2 4-4"></path>
                    </svg>`,
-        error: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        error: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                  <circle cx="12" cy="12" r="10"></circle>
-                 <line x1="15" y1="9" x2="9" y2="15"></line>
-                 <line x1="9" y1="9" x2="15" y2="15"></line>
+                 <path d="M12 8v4"></path>
+                 <path d="m12 16 .01 0"></path>
                </svg>`
     };
     return icons[status] || icons.idle;
