@@ -21,6 +21,7 @@ class DownloadManager:
         self.progress: Dict[str, float] = {}  # link -> progress percentage (0-100)
         self.progress_callbacks: Dict[str, list] = {}  # link -> list of callback functions
         self.downloaded_files: Dict[str, str] = {}  # link -> actual filename that was downloaded
+        self.download_processes: Dict[str, subprocess.Popen] = {}  # link -> process for canceling
     
     def get_status(self, links: list[str]) -> Dict[str, str]:
         """Get status for multiple links with file existence check."""
@@ -147,6 +148,34 @@ class DownloadManager:
     def is_busy(self, link: str) -> bool:
         """Check if link is currently downloading or already done."""
         return self.status.get(link) in {"downloading", "done"}
+    
+    def cancel_download(self, link: str) -> bool:
+        """Cancel an active download."""
+        if self.status.get(link) != "downloading":
+            return False
+        
+        # Get the process handle
+        proc = self.download_processes.get(link)
+        if proc:
+            try:
+                proc.terminate()  # Try graceful termination first
+                proc.wait(timeout=2)  # Wait up to 2 seconds
+            except subprocess.TimeoutExpired:
+                proc.kill()  # Force kill if needed
+            except Exception as e:
+                if DEBUG_OUTPUT:
+                    print(f"DEBUG - Error terminating process for {link}: {e}")
+        
+        # Clean up
+        self.download_processes.pop(link, None)
+        self.status[link] = "idle"
+        self.progress[link] = 0.0
+        self.remove_progress_callbacks(link)
+        
+        if DEBUG_OUTPUT:
+            print(f"DEBUG - Cancelled download for: {link}")
+        
+        return True
     
     def build_command(self, link: str, settings: Dict[str, Any]) -> list[str]:
         """
@@ -335,6 +364,9 @@ class DownloadManager:
                 bufsize=0
             )
             
+            # Store process handle for cancellation
+            self.download_processes[link] = proc
+            
             lines_seen = 0
             
             # Read output line by line
@@ -417,8 +449,9 @@ class DownloadManager:
             self.status[link] = "error"
             print(f"Download error for {link}: {e}")
         finally:
-            # Clean up callbacks
+            # Clean up callbacks and process handle
             self.remove_progress_callbacks(link)
+            self.download_processes.pop(link, None)
     
     def start_download(self, link: str, settings: Dict[str, Any]) -> bool:
         """

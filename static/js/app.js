@@ -125,11 +125,18 @@ function createRowElement(link, data) {
             </div>
         </td>
         <td class="actions-cell">
-            <button class="dlbtn" onclick="dlOne('${link}')" title="Download">
+            <button class="dlbtn" onclick="dlOne('${link}')" title="Download" ${data.status === 'downloading' ? 'style="display:none"' : ''}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="7,10 12,15 17,10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+            </button>
+            <button class="cancelbtn" onclick="cancelOne('${link}')" title="Cancel Download" ${data.status !== 'downloading' ? 'style="display:none"' : ''}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
                 </svg>
             </button>
             <button class="xbtn" onclick="rmRow('${link}')" title="Remove">
@@ -180,6 +187,30 @@ function updateRowData(link, data) {
         const statusContainer = row.querySelector('.status');
         if (statusContainer) {
             statusContainer.className = `status ${data.status}`;
+        }
+        
+        // Update button visibility and state based on status
+        const dlBtn = row.querySelector('.dlbtn');
+        const cancelBtn = row.querySelector('.cancelbtn');
+        
+        if (data.status === 'downloading') {
+            if (dlBtn) {
+                dlBtn.style.display = 'none';
+                dlBtn.disabled = true;
+            }
+            if (cancelBtn) {
+                cancelBtn.style.display = 'flex';
+                cancelBtn.disabled = false;
+            }
+        } else {
+            if (dlBtn) {
+                dlBtn.style.display = 'flex';
+                dlBtn.disabled = false; // Re-enable for any non-downloading status
+            }
+            if (cancelBtn) {
+                cancelBtn.style.display = 'none';
+                cancelBtn.disabled = false;
+            }
         }
         
         // Remove loading class if present
@@ -384,6 +415,41 @@ function checkDownloadStatus(link, dlBtn) {
             updateStatus(link, 'error', 'Failed');
             dlBtn.disabled = false;
         });
+}
+
+function cancelOne(link) {
+    if (!rows[link]) return;
+    
+    const cancelBtn = rows[link].querySelector('.cancelbtn');
+    const trackTitle = rows[link].querySelector('.title-cell').textContent;
+    
+    if (cancelBtn) cancelBtn.disabled = true;
+    
+    // Send cancel request
+    fetch('/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link })
+    })
+    .then(response => {
+        if (response.ok) {
+            updateStatus(link, 'idle', 'Ready');
+            
+            // Re-enable the download button
+            const dlBtn = rows[link].querySelector('.dlbtn');
+            if (dlBtn) dlBtn.disabled = false;
+            
+            showToast(`Cancelled: ${trackTitle}`, 'info', 3000);
+        } else {
+            showToast('Failed to cancel download', 'error', 3000);
+            if (cancelBtn) cancelBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Cancel request failed:', error);
+        showToast('Failed to cancel download', 'error', 3000);
+        if (cancelBtn) cancelBtn.disabled = false;
+    });
 }
 
 function dlAll() {

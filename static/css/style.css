@@ -177,9 +177,9 @@ th, td {
 }
 
 .actions-header, .actions-cell {
-    width: 90px;
-    min-width: 90px;
-    max-width: 90px;
+    width: 110px;
+    min-width: 110px;
+    max-width: 110px;
 }
 
 /* Allow images to display properly in cover column */
@@ -260,6 +260,15 @@ img {
 
 .dlbtn:hover:not([disabled]) {
     background: #159f42;
+}
+
+.cancelbtn {
+    background: #ff9800;
+    color: #fff;
+}
+
+.cancelbtn:hover:not([disabled]) {
+    background: #f57c00;
 }
 
 .actions button svg {

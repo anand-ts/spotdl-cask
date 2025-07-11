@@ -59,6 +59,18 @@ def create_app() -> Flask:
         status_data = download_manager.get_status(links)
         return jsonify(status_data)
     
+    @app.route("/cancel", methods=["POST"])
+    def cancel_endpoint():
+        """Cancel an active download."""
+        data = request.get_json(force=True)
+        link = data.get("link", "")
+        
+        if not link:
+            return "", 400
+        
+        success = download_manager.cancel_download(link)
+        return "", 204 if success else 409
+    
     @app.route("/progress/<path:link>")
     def progress_stream(link: str):
         """Server-Sent Events stream for real-time download progress."""
