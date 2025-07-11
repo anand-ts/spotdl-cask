@@ -94,11 +94,9 @@ select {
 
 .settings-btn {
     background: var(--dark-gray) !important;
-    padding: .6rem !important;
-    width: 40px;
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 0.5rem;
 }
 
 .settings-btn:hover {
@@ -140,9 +138,9 @@ tr:nth-child(even) {
 }
 
 img {
-    width: 48px;
-    height: 48px;
-    border-radius: 4px;
+    width: 64px;
+    height: 64px;
+    border-radius: 6px;
     object-fit: cover;
 }
 
@@ -517,8 +515,8 @@ progress::-webkit-progress-value {
 }
 
 .skeleton-image {
-    width: 48px;
-    height: 48px;
+    width: 64px;
+    height: 64px;
     background: #e0e0e0;
 }
 

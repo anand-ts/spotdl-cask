@@ -129,7 +129,7 @@ function createRowElement(link, data) {
                 </svg>
             </button>
             <button class="xbtn" onclick="rmRow('${link}')" title="Remove">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
@@ -393,13 +393,11 @@ function dlAll() {
 function toggleSettings() {
     sidebar.classList.add('open');
     overlay.classList.add('show');
-    zone.classList.add('zone-shifted');
 }
 
 function closeSettings() {
     sidebar.classList.remove('open');
     overlay.classList.remove('show');
-    zone.classList.remove('zone-shifted');
 }
 
 function applySettings() {
