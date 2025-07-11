@@ -122,19 +122,69 @@ select {
 table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
 }
 
 th, td {
     padding: .45rem .6rem;
     text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Fixed column widths to prevent shifting */
+.cover-header, .cover-cell {
+    width: 80px;
+    min-width: 80px;
+    max-width: 80px;
+}
+
+.title-header, .title-cell {
+    width: 35%;
+    min-width: 200px;
+}
+
+.artist-header, .artist-cell {
+    width: 20%;
+    min-width: 120px;
+}
+
+.album-header, .album-cell {
+    width: 20%;
+    min-width: 120px;
+}
+
+.status-header, .status-cell {
+    width: 15%;
+    min-width: 100px;
+}
+
+.actions-header, .actions-cell {
+    width: 90px;
+    min-width: 90px;
+    max-width: 90px;
+}
+
+/* Allow images to display properly in cover column */
+.cover-cell {
+    white-space: normal;
+    text-align: center;
+}
+
+/* Allow actions to wrap properly */
+.actions-cell {
+    white-space: normal;
 }
 
 tr:nth-child(odd) {
     background: #fff;
+    transition: background-color 0.3s ease;
 }
 
 tr:nth-child(even) {
     background: #f3f7f3;
+    transition: background-color 0.3s ease;
 }
 
 img {

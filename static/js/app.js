@@ -223,25 +223,37 @@ function rmRow(l) {
     const row = rows[l];
     const trackTitle = row.querySelector('.title-cell').textContent;
     
-    // Add removal animation
-    row.style.transition = 'all 0.3s ease';
+    // Get the current height before animating
+    const rowHeight = row.offsetHeight;
+    
+    // Phase 1: Fade out and slide
+    row.style.transition = 'all 0.25s ease';
     row.style.opacity = '0';
-    row.style.transform = 'translateX(-100%)';
+    row.style.transform = 'translateX(-20px) scale(0.95)';
     
     setTimeout(() => {
-        if (row.parentElement) {
-            tblBody.removeChild(row);
-        }
-        delete rows[l];
+        // Phase 2: Collapse height
+        row.style.transition = 'all 0.2s ease';
+        row.style.height = '0px';
+        row.style.padding = '0';
+        row.style.margin = '0';
+        row.style.overflow = 'hidden';
         
-        if (!Object.keys(rows).length) {
-            ph.style.display = 'block';
-            document.getElementById('tbl').style.display = 'none';
-            allBtn.disabled = true;
-        }
-        
-        showToast(`Removed: ${trackTitle}`, 'info', 2000);
-    }, 300);
+        setTimeout(() => {
+            if (row.parentElement) {
+                tblBody.removeChild(row);
+            }
+            delete rows[l];
+            
+            if (!Object.keys(rows).length) {
+                ph.style.display = 'block';
+                document.getElementById('tbl').style.display = 'none';
+                allBtn.disabled = true;
+            }
+            
+            showToast(`Removed: ${trackTitle}`, 'info', 2000);
+        }, 200);
+    }, 250);
 }
 
 // Download Management
