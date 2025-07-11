@@ -453,12 +453,31 @@ function cancelOne(link) {
 }
 
 function dlAll() {
-    const linkCount = Object.keys(rows).length;
-    if (linkCount === 0) return;
+    const allLinks = Object.keys(rows);
+    if (allLinks.length === 0) return;
     
+    // Filter out songs that are already downloading or completed
+    const pendingLinks = allLinks.filter(link => {
+        const row = rows[link];
+        const statusCell = row.querySelector('.status-cell');
+        const statusText = statusCell.querySelector('.status-text');
+        const currentStatus = statusText ? statusText.textContent.trim() : '';
+        
+        // Skip if already downloading or completed
+        return currentStatus !== 'Downloading...' && currentStatus !== 'Downloaded';
+    });
+    
+    if (pendingLinks.length === 0) {
+        showToast('All tracks are already downloaded or downloading', 'info', 3000);
+        return;
+    }
+    
+    const linkCount = pendingLinks.length;
     showToast(`Starting download of ${linkCount} track${linkCount > 1 ? 's' : ''}...`, 'info', 3000);
     
-    Object.keys(rows).forEach(dlOne);
+    // Only download pending tracks
+    pendingLinks.forEach(dlOne);
+    
     allBtn.innerHTML = `
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="loading-spinner">
             <path d="M21 12a9 9 0 11-6.219-8.56"></path>

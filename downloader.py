@@ -22,6 +22,7 @@ class DownloadManager:
         self.progress_callbacks: Dict[str, list] = {}  # link -> list of callback functions
         self.downloaded_files: Dict[str, str] = {}  # link -> actual filename that was downloaded
         self.download_processes: Dict[str, subprocess.Popen] = {}  # link -> process for canceling
+        self.cancelled_downloads: set = set()  # track intentionally cancelled downloads
     
     def get_status(self, links: list[str]) -> Dict[str, str]:
         """Get status for multiple links with file existence check."""
@@ -154,6 +155,9 @@ class DownloadManager:
         if self.status.get(link) != "downloading":
             return False
         
+        # Mark as intentionally cancelled
+        self.cancelled_downloads.add(link)
+        
         # Get the process handle
         proc = self.download_processes.get(link)
         if proc:
@@ -273,6 +277,8 @@ class DownloadManager:
         
         self.status[link] = "downloading"
         self.progress[link] = 0.0
+        # Clear any previous cancellation state for this link
+        self.cancelled_downloads.discard(link)
         if DEBUG_OUTPUT:
             print(f"DEBUG - Starting download for: {link}")
         
@@ -442,16 +448,30 @@ class DownloadManager:
                 self._store_downloaded_filename(link, settings)
                 print(f"Successfully downloaded: {link}")
             else:
-                self.status[link] = "error"
-                print(f"Download failed for {link} with return code: {proc.returncode}")
+                # Check if this was an intentional cancellation
+                if link in self.cancelled_downloads:
+                    # Don't overwrite status - it should already be "idle" from cancel_download()
+                    if DEBUG_OUTPUT:
+                        print(f"DEBUG - Download was cancelled (return code {proc.returncode}), keeping status as-is")
+                else:
+                    # This was a real error, not a cancellation
+                    self.status[link] = "error"
+                    print(f"Download failed for {link} with return code: {proc.returncode}")
                 
         except Exception as e:
-            self.status[link] = "error"
-            print(f"Download error for {link}: {e}")
+            # Check if this was an intentional cancellation
+            if link in self.cancelled_downloads:
+                if DEBUG_OUTPUT:
+                    print(f"DEBUG - Download was cancelled (exception: {e}), keeping status as-is")
+            else:
+                self.status[link] = "error"
+                print(f"Download error for {link}: {e}")
         finally:
             # Clean up callbacks and process handle
             self.remove_progress_callbacks(link)
             self.download_processes.pop(link, None)
+            # Clean up cancellation tracking
+            self.cancelled_downloads.discard(link)
     
     def start_download(self, link: str, settings: Dict[str, Any]) -> bool:
         """

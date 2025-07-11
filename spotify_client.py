@@ -40,6 +40,10 @@ class SpotifyManager:
             self._ready = True
             
         except Exception as e:
+            # If client is already initialized, that's fine - we can use it
+            if "already been initialized" in str(e):
+                self._ready = True
+                return
             raise RuntimeError(f"Failed to initialize Spotify client: {e}") from e
     
     def get_metadata(self, link: str) -> Dict[str, Any]:
