@@ -257,40 +257,107 @@ function dlOne(link) {
     // Add progress bar
     const progressBar = addProgressBar(statusCell, 0);
     
-    // Simulate progress (since we don't have real progress from backend)
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress > 90) progress = 90; // Cap at 90% until complete
-        updateProgressBar(progressBar, progress);
-    }, 500);
-    
+    // Start the download
     fetch('/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ link, ...settings })
     })
     .then(response => {
-        clearInterval(progressInterval);
         if (response.ok) {
-            updateProgressBar(progressBar, 100);
-            setTimeout(() => {
-                updateStatus(link, 'completed', 'Downloaded');
-                const trackTitle = rows[link].querySelector('.title-cell').textContent;
-                showToast(`Downloaded: ${trackTitle}`, 'success', 4000);
-            }, 500);
+            // Start listening for real-time progress updates via Server-Sent Events
+            startProgressStream(link, progressBar, dlBtn);
         } else {
             updateStatus(link, 'error', 'Error');
             dlBtn.disabled = false;
             showToast('Download failed', 'error', 4000);
         }
     })
-    .catch(() => {
-        clearInterval(progressInterval);
+    .catch(error => {
+        console.error('Download start failed:', error);
         updateStatus(link, 'error', 'Failed');
         dlBtn.disabled = false;
         showToast('Download failed', 'error', 4000);
     });
+}
+
+function startProgressStream(link, progressBar, dlBtn) {
+    if (!rows[link]) return;
+    
+    // Create EventSource for Server-Sent Events
+    const encodedLink = encodeURIComponent(link);
+    const eventSource = new EventSource(`/progress/${encodedLink}`);
+    
+    eventSource.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            
+            if (data.link === link && rows[link]) {
+                // Update progress bar
+                updateProgressBar(progressBar, data.progress);
+                
+                // Check if download is complete
+                if (data.complete) {
+                    eventSource.close();
+                    
+                    if (data.status === 'error') {
+                        updateStatus(link, 'error', 'Error');
+                        dlBtn.disabled = false;
+                        showToast('Download failed', 'error', 4000);
+                    } else {
+                        updateStatus(link, 'completed', 'Downloaded');
+                        const trackTitle = rows[link].querySelector('.title-cell').textContent;
+                        showToast(`Downloaded: ${trackTitle}`, 'success', 4000);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error parsing progress data:', error);
+        }
+    };
+    
+    eventSource.onerror = function(event) {
+        console.error('Progress stream error:', event);
+        eventSource.close();
+        
+        // Fallback: check status via polling
+        setTimeout(() => {
+            if (rows[link]) {
+                checkDownloadStatus(link, dlBtn);
+            }
+        }, 1000);
+    };
+    
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+        eventSource.close();
+    });
+}
+
+function checkDownloadStatus(link, dlBtn) {
+    // Fallback status check if SSE fails
+    fetch(`/status?links=${encodeURIComponent(link)}`)
+        .then(response => response.json())
+        .then(status => {
+            const linkStatus = status[link];
+            if (linkStatus === 'done') {
+                updateStatus(link, 'completed', 'Downloaded');
+                const trackTitle = rows[link].querySelector('.title-cell').textContent;
+                showToast(`Downloaded: ${trackTitle}`, 'success', 4000);
+            } else if (linkStatus === 'error') {
+                updateStatus(link, 'error', 'Error');
+                dlBtn.disabled = false;
+                showToast('Download failed', 'error', 4000);
+            } else if (linkStatus === 'downloading') {
+                // Still downloading, check again
+                setTimeout(() => checkDownloadStatus(link, dlBtn), 2000);
+            }
+        })
+        .catch(error => {
+            console.error('Status check failed:', error);
+            updateStatus(link, 'error', 'Failed');
+            dlBtn.disabled = false;
+        });
 }
 
 function dlAll() {
@@ -483,7 +550,20 @@ function addProgressBar(element, progress = 0) {
 }
 
 function updateProgressBar(bar, progress) {
-    bar.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+    const clampedProgress = Math.min(100, Math.max(0, progress));
+    bar.style.width = `${clampedProgress}%`;
+    
+    // Update progress text if it exists
+    const progressWrapper = bar.parentElement;
+    let progressText = progressWrapper.querySelector('.progress-text');
+    
+    if (!progressText) {
+        progressText = document.createElement('div');
+        progressText.className = 'progress-text';
+        progressWrapper.appendChild(progressText);
+    }
+    
+    progressText.textContent = `${Math.round(clampedProgress)}%`;
 }
 
 // Enhanced Drag and Drop

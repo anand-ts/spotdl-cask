@@ -544,7 +544,7 @@ progress::-webkit-progress-value {
 .progress-wrapper {
     position: relative;
     width: 100%;
-    height: 8px;
+    height: 20px;
     background: var(--gray);
     border-radius: 4px;
     overflow: hidden;
@@ -556,6 +556,22 @@ progress::-webkit-progress-value {
     border-radius: 4px;
     transition: width 0.3s ease;
     position: relative;
+}
+
+.progress-text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #333;
+    text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
+    z-index: 1;
 }
 
 .progress-bar::after {
