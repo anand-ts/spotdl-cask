@@ -74,6 +74,15 @@ select {
     background: #555 !important;
 }
 
+.settings-btn svg {
+    color: white;
+    transition: transform 0.2s ease;
+}
+
+.settings-btn:hover svg {
+    transform: rotate(45deg);
+}
+
 #zone {
     flex: 1;
     overflow: auto;
@@ -110,19 +119,53 @@ img {
     border: none;
     border-radius: 6px;
     font-size: .8rem;
-    padding: .35rem .7rem;
+    padding: .5rem;
     margin-right: .4rem;
     cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+
+.actions button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.actions button[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .xbtn {
-    background: #e65555;
+    background: #f44336;
     color: #fff;
+}
+
+.xbtn:hover:not([disabled]) {
+    background: #d32f2f;
 }
 
 .dlbtn {
     background: var(--green);
     color: #fff;
+}
+
+.dlbtn:hover:not([disabled]) {
+    background: #159f42;
+}
+
+.actions button svg {
+    transition: transform 0.2s ease;
+}
+
+.actions button:hover:not([disabled]) svg {
+    transform: scale(1.1);
 }
 
 .placeholder {
@@ -147,6 +190,79 @@ progress::-webkit-progress-bar {
 
 progress::-webkit-progress-value {
     background: var(--green);
+}
+
+/* Status Icons and Button Icons */
+.status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.status-icon.idle {
+    color: #999;
+    background: rgba(153, 153, 153, 0.1);
+}
+
+.status-icon.downloading {
+    color: #2196F3;
+    background: rgba(33, 150, 243, 0.1);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-icon.completed {
+    color: var(--green);
+    background: rgba(29, 185, 84, 0.1);
+}
+
+.status-icon.error {
+    color: #f44336;
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.status-text {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.loading-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+    }
+}
+
+.progress-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Sidebar Styles */
@@ -297,4 +413,18 @@ progress::-webkit-progress-value {
 .overlay.show {
     opacity: 1;
     visibility: visible;
+}
+
+#allBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#allBtn svg {
+    transition: transform 0.2s ease;
+}
+
+#allBtn:hover:not([disabled]) svg {
+    transform: translateY(1px);
 }

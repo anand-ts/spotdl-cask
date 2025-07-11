@@ -62,26 +62,35 @@ def create_app() -> Flask:
 
 def run_server(app: Flask) -> None:
     """Run Flask server in a separate thread."""
-    app.run(port=PORT, threaded=True, debug=False)
+    app.run(port=PORT, threaded=True, debug=True)
 
 
 def main():
     """Main entry point for the application."""
+    import os
+    import sys
+    
     app = create_app()
     
-    # Start Flask server in background
-    server_thread = threading.Thread(target=run_server, args=(app,), daemon=True)
-    server_thread.start()
-    
-    # Create and start webview window
-    webview.create_window(
-        APP_NAME,
-        f"http://127.0.0.1:{PORT}",
-        width=WINDOW_WIDTH,
-        height=WINDOW_HEIGHT,
-        resizable=True
-    )
-    webview.start()
+    # Check if we're in development mode
+    if os.getenv('FLASK_ENV') == 'development' or '--dev' in sys.argv:
+        # Run Flask directly for development with hot reloading
+        app.run(host='127.0.0.1', port=PORT, debug=True)
+    else:
+        # Run in webview for production
+        # Start Flask server in background
+        server_thread = threading.Thread(target=run_server, args=(app,), daemon=True)
+        server_thread.start()
+        
+        # Create and start webview window
+        webview.create_window(
+            APP_NAME,
+            f"http://127.0.0.1:{PORT}",
+            width=WINDOW_WIDTH,
+            height=WINDOW_HEIGHT,
+            resizable=True
+        )
+        webview.start()
 
 
 if __name__ == "__main__":
