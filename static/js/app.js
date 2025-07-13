@@ -196,6 +196,7 @@ function updateRowData(link, data) {
         // Update button visibility and state based on status
         const dlBtn = row.querySelector('.dlbtn');
         const cancelBtn = row.querySelector('.cancelbtn');
+        const removeBtn = row.querySelector('.xbtn');
         
         if (data.status === 'downloading') {
             if (dlBtn) {
@@ -206,6 +207,10 @@ function updateRowData(link, data) {
                 cancelBtn.style.display = 'flex';
                 cancelBtn.disabled = false;
             }
+            if (removeBtn) {
+                removeBtn.disabled = true;
+                removeBtn.classList.add('disabled');
+            }
         } else {
             if (dlBtn) {
                 dlBtn.style.display = 'flex';
@@ -214,6 +219,10 @@ function updateRowData(link, data) {
             if (cancelBtn) {
                 cancelBtn.style.display = 'none';
                 cancelBtn.disabled = false;
+            }
+            if (removeBtn) {
+                removeBtn.disabled = false;
+                removeBtn.classList.remove('disabled');
             }
         }
         
