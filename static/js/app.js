@@ -10,6 +10,8 @@ const zone = document.getElementById('zone');
 
 // Application State
 let rows = {};
+// Track active Server-Sent Events so we can close them on cancel/remove
+const eventStreams = {};
 let settings = {
     quality: 'best',
     format: 'mp3',
@@ -289,6 +291,11 @@ function rmRow(l) {
             if (row.parentElement) {
                 tblBody.removeChild(row);
             }
+            // Close any SSE stream tied to this link
+            if (eventStreams[l]) {
+                eventStreams[l].close();
+                delete eventStreams[l];
+            }
             delete rows[l];
             
             if (!Object.keys(rows).length) {
@@ -328,6 +335,11 @@ function dlOne(link) {
     })
     .then(response => {
         if (response.ok) {
+            // Close progress stream if still open
+            if (eventStreams[link]) {
+                eventStreams[link].close();
+                delete eventStreams[link];
+            }
             // Start listening for real-time progress updates via Server-Sent Events
             startProgressStream(link, progressBar, dlBtn);
         } else {
@@ -350,6 +362,7 @@ function startProgressStream(link, progressBar, dlBtn) {
     // Create EventSource for Server-Sent Events
     const encodedLink = encodeURIComponent(link);
     const eventSource = new EventSource(`/progress/${encodedLink}`);
+    eventStreams[link] = eventSource; // store reference
     
     eventSource.onmessage = function(event) {
         try {
@@ -362,6 +375,7 @@ function startProgressStream(link, progressBar, dlBtn) {
                 // Check if download is complete
                 if (data.complete) {
                     eventSource.close();
+                    delete eventStreams[link]; // Close the stream
                     
                     if (data.status === 'error') {
                         updateStatus(link, 'error', 'Error');
@@ -385,6 +399,7 @@ function startProgressStream(link, progressBar, dlBtn) {
     eventSource.onerror = function(event) {
         console.error('Progress stream error:', event);
         eventSource.close();
+        delete eventStreams[link]; // Close the stream
         
         // Fallback: check status via polling
         setTimeout(() => {
@@ -445,6 +460,11 @@ function cancelOne(link) {
     })
     .then(response => {
         if (response.ok) {
+            // Close any open SSE stream for this link
+            if (eventStreams[link]) {
+                eventStreams[link].close();
+                delete eventStreams[link];
+            }
             updateStatus(link, 'idle', 'Ready');
             
             // Re-enable the download button
@@ -771,7 +791,7 @@ function clearAllRows() {
     showToast('Cleared all tracks', 'info', 2000);
 }
 
-// Add to window for debugging
+// Expose for debugging
 window.clearAllRows = clearAllRows;
 
 // Download All Button State Management
@@ -782,21 +802,14 @@ function updateDownloadAllButtonState() {
         updateCancelAllButtonState();
         return;
     }
-    
-    // Check if any tracks are currently downloading
     const isAnyDownloading = allLinks.some(link => {
         const row = rows[link];
-        const statusCell = row.querySelector('.status-cell');
-        const statusText = statusCell.querySelector('.status-text');
-        const currentStatus = statusText ? statusText.textContent.trim() : '';
-        return currentStatus === 'Downloading...';
+        const statusText = row.querySelector('.status-text')?.textContent.trim() || '';
+        return statusText === 'Downloading...';
     });
-    
     if (!isAnyDownloading) {
         resetDownloadAllButton();
     }
-    
-    // Always update Cancel All button state
     updateCancelAllButtonState();
 }
 
@@ -819,48 +832,31 @@ function updateCancelAllButtonState() {
         cancelAllBtn.disabled = true;
         return;
     }
-    
-    // Check if any tracks are currently downloading
     const isAnyDownloading = allLinks.some(link => {
         const row = rows[link];
-        const statusCell = row.querySelector('.status-cell');
-        const statusText = statusCell.querySelector('.status-text');
-        const currentStatus = statusText ? statusText.textContent.trim() : '';
-        return currentStatus === 'Downloading...';
+        const statusText = row.querySelector('.status-text')?.textContent.trim() || '';
+        return statusText === 'Downloading...';
     });
-    
     cancelAllBtn.disabled = !isAnyDownloading;
 }
 
-// Dark Mode Functionality
+// Dark Mode utilities
 function toggleDarkMode() {
     const body = document.body;
     const isDarkMode = body.getAttribute('data-theme') === 'dark';
     const newTheme = isDarkMode ? 'light' : 'dark';
-    
     body.setAttribute('data-theme', newTheme);
-    
-    // Update the toggle button icon
     updateDarkModeIcon(newTheme);
-    
-    // Save preference to localStorage
     localStorage.setItem('darkMode', newTheme);
-    
-    // Show toast notification
     showToast(`Switched to ${newTheme} mode`, 'info', 2000);
 }
 
 function updateDarkModeIcon(theme) {
     const icon = document.getElementById('darkModeIcon');
     if (!icon) return;
-    
     if (theme === 'dark') {
-        // Moon icon for dark mode
-        icon.innerHTML = `
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-        `;
+        icon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>`;
     } else {
-        // Sun icon for light mode
         icon.innerHTML = `
             <circle cx="12" cy="12" r="5"></circle>
             <path d="M12 1v2"></path>
@@ -875,20 +871,16 @@ function updateDarkModeIcon(theme) {
     }
 }
 
-// Initialize dark mode on page load
 function initializeDarkMode() {
     const savedTheme = localStorage.getItem('darkMode');
-    const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    // Use saved preference, or fall back to system preference
-    const theme = savedTheme || (prefersDarkMode ? 'dark' : 'light');
-    
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = savedTheme || (prefersDark ? 'dark' : 'light');
     document.body.setAttribute('data-theme', theme);
     updateDarkModeIcon(theme);
 }
 
-// Initialize dark mode when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+// DOM ready initialisation
+document.addEventListener('DOMContentLoaded', () => {
     initializeDarkMode();
     setupDragAndDrop();
 });

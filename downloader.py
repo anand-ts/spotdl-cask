@@ -148,13 +148,30 @@ class DownloadManager:
     
     def is_busy(self, link: str) -> bool:
         """Check if link is currently downloading or already done."""
-        return self.status.get(link) in {"downloading", "done"}
+        # Treat both queued (legacy) and downloading states as busy so that the same
+        # track cannot be enqueued multiple times while we are still spinning up the
+        # process.
+        return self.status.get(link) in {"queued", "downloading", "done"}
     
     def cancel_download(self, link: str) -> bool:
         """Cancel an active download."""
-        if self.status.get(link) != "downloading":
-            return False
-        
+        current_status = self.status.get(link, "idle")
+
+        # If the download hasn't started yet (idle/queued) we can still honour a cancel
+        # request by flagging the link as cancelled so that any later attempt to start
+        # the download will be skipped.
+        if current_status not in {"downloading", "queued"}:
+            # There is nothing to terminate yet, but record the intent so that a race
+            # where /cancel arrives before /download is handled correctly.
+            self.cancelled_downloads.add(link)
+            # Ensure status is reset
+            self.status[link] = "idle"
+            self.progress[link] = 0.0
+            if DEBUG_OUTPUT:
+                print(f"DEBUG - Pre-download cancellation recorded for: {link}")
+            return True
+
+        # From here on we know the status is downloading/queued and a process may exist
         # Mark as intentionally cancelled
         self.cancelled_downloads.add(link)
         
@@ -277,8 +294,16 @@ class DownloadManager:
         
         self.status[link] = "downloading"
         self.progress[link] = 0.0
-        # Clear any previous cancellation state for this link
-        self.cancelled_downloads.discard(link)
+        # If the user cancelled very quickly (before the worker thread even started),
+        # honour that request right away.
+        if link in self.cancelled_downloads:
+            if DEBUG_OUTPUT:
+                print(f"DEBUG - Download for {link} was cancelled before start.")
+            self.status[link] = "idle"
+            self.progress[link] = 0.0
+            self.remove_progress_callbacks(link)
+            self.cancelled_downloads.discard(link)
+            return
         if DEBUG_OUTPUT:
             print(f"DEBUG - Starting download for: {link}")
         
@@ -372,12 +397,40 @@ class DownloadManager:
             
             # Store process handle for cancellation
             self.download_processes[link] = proc
+
+            # Cancellation could have been requested in the tiny window between the
+            # start of this thread and the creation of the subprocess.  Honour it now.
+            if link in self.cancelled_downloads:
+                if DEBUG_OUTPUT:
+                    print(f"DEBUG - Detected cancellation for {link} right after process start. Terminating.")
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+                proc.wait(timeout=5)
+                self.status[link] = "idle"
+                self.progress[link] = 0.0
+                self.remove_progress_callbacks(link)
+                self.download_processes.pop(link, None)
+                self.cancelled_downloads.discard(link)
+                return
             
             lines_seen = 0
             
             # Read output line by line
             if proc.stdout:
                 while True:
+                    # Periodically check for cancellation during download
+                    if link in self.cancelled_downloads:
+                        if DEBUG_OUTPUT:
+                            print(f"DEBUG - Cancellation detected during output loop for {link}. Killing process.")
+                        try:
+                            proc.terminate()
+                        except Exception:
+                            pass
+                        proc.wait(timeout=5)
+                        break
+                    
                     line = proc.stdout.readline()
                     if not line:
                         break
@@ -484,10 +537,21 @@ class DownloadManager:
         Returns:
             True if download started, False if already busy
         """
+        # If the user has already cancelled this link (race with /cancel), skip.
+        if link in self.cancelled_downloads:
+            if DEBUG_OUTPUT:
+                print(f"DEBUG - Download for {link} was skipped because it was cancelled before start_download.")
+            # The status is already reset to idle by cancel_download
+            self.cancelled_downloads.discard(link)
+            return False
+
         if self.is_busy(link):
             return False
         
-        self.status[link] = "queued"
+        # Mark as downloading immediately to avoid a short-lived "queued" state that can
+        # cause race conditions with cancel requests coming from the UI before the
+        # background thread has a chance to update the status.
+        self.status[link] = "downloading"
         thread = threading.Thread(
             target=self._run_download, 
             args=(link, settings),
