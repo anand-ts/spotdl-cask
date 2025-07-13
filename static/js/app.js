@@ -515,12 +515,14 @@ setInterval(() => {
                 const data = statuses[link];
                 if (!data || !rows[link]) return;
                 
-                const currentStatus = rows[link].querySelector('.status-text').textContent.trim();
-                const newStatus = getStatusText(data.status);
+                // Map backend "done" status to frontend "completed" status
+                const newStatusName = data.status === 'done' ? 'completed' : data.status;
+                const currentStatusText = rows[link].querySelector('.status-text').textContent.trim();
+                const newStatusText = getStatusText(newStatusName);
 
                 // Update status if it has changed
-                if (currentStatus !== newStatus) {
-                    updateStatus(link, data.status);
+                if (currentStatusText !== newStatusText) {
+                    updateStatus(link, newStatusName);
                 }
 
                 // Update progress bar for downloading tracks
