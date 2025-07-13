@@ -366,6 +366,9 @@ function startProgressStream(link, progressBar, dlBtn) {
                         const trackTitle = rows[link].querySelector('.title-cell').textContent;
                         showToast(`Downloaded: ${trackTitle}`, 'success', 4000);
                     }
+                    
+                    // Update Download All button state
+                    updateDownloadAllButtonState();
                 }
             }
         } catch (error) {
@@ -401,10 +404,12 @@ function checkDownloadStatus(link, dlBtn) {
                 updateStatus(link, 'completed', 'Downloaded');
                 const trackTitle = rows[link].querySelector('.title-cell').textContent;
                 showToast(`Downloaded: ${trackTitle}`, 'success', 4000);
+                updateDownloadAllButtonState();
             } else if (linkStatus === 'error') {
                 updateStatus(link, 'error', 'Error');
                 dlBtn.disabled = false;
                 showToast('Download failed', 'error', 4000);
+                updateDownloadAllButtonState();
             } else if (linkStatus === 'downloading') {
                 // Still downloading, check again
                 setTimeout(() => checkDownloadStatus(link, dlBtn), 2000);
@@ -414,6 +419,7 @@ function checkDownloadStatus(link, dlBtn) {
             console.error('Status check failed:', error);
             updateStatus(link, 'error', 'Failed');
             dlBtn.disabled = false;
+            updateDownloadAllButtonState();
         });
 }
 
@@ -438,6 +444,9 @@ function cancelOne(link) {
             // Re-enable the download button
             const dlBtn = rows[link].querySelector('.dlbtn');
             if (dlBtn) dlBtn.disabled = false;
+            
+            // Check if we should update the Download All button state
+            updateDownloadAllButtonState();
             
             showToast(`Cancelled: ${trackTitle}`, 'info', 3000);
         } else {
@@ -486,20 +495,6 @@ function dlAll() {
     `;
     allBtn.disabled = true;
     removeAllBtn.disabled = true;
-    
-    // Re-enable button after all downloads complete (estimated)
-    setTimeout(() => {
-        allBtn.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7,10 12,15 17,10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            Download All
-        `;
-        allBtn.disabled = false;
-        removeAllBtn.disabled = false;
-    }, linkCount * 3000); // Rough estimate
 }
 
 function removeAllTracks() {
@@ -583,18 +578,8 @@ setInterval(() => {
                 }
             });
             
-            if (Object.values(st).every(v => v === 'done' || v === 'error')) {
-                allBtn.innerHTML = `
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7,10 12,15 17,10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                    Download All
-                `;
-                allBtn.disabled = false;
-                removeAllBtn.disabled = false;
-            }
+            // Update Download All button state based on current status
+            updateDownloadAllButtonState();
         });
 }, 2000);
 
@@ -754,6 +739,41 @@ function clearAllRows() {
 
 // Add to window for debugging
 window.clearAllRows = clearAllRows;
+
+// Download All Button State Management
+function updateDownloadAllButtonState() {
+    const allLinks = Object.keys(rows);
+    if (allLinks.length === 0) {
+        resetDownloadAllButton();
+        return;
+    }
+    
+    // Check if any tracks are currently downloading
+    const isAnyDownloading = allLinks.some(link => {
+        const row = rows[link];
+        const statusCell = row.querySelector('.status-cell');
+        const statusText = statusCell.querySelector('.status-text');
+        const currentStatus = statusText ? statusText.textContent.trim() : '';
+        return currentStatus === 'Downloading...';
+    });
+    
+    if (!isAnyDownloading) {
+        resetDownloadAllButton();
+    }
+}
+
+function resetDownloadAllButton() {
+    allBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7,10 12,15 17,10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Download All
+    `;
+    allBtn.disabled = false;
+    removeAllBtn.disabled = false;
+}
 
 // Dark Mode Functionality
 function toggleDarkMode() {
