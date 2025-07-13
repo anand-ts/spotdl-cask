@@ -741,11 +741,6 @@ function setupDragAndDrop() {
     }
 }
 
-// Initialize enhanced features
-document.addEventListener('DOMContentLoaded', function() {
-    setupDragAndDrop();
-});
-
 // Debug and utility functions
 function clearAllRows() {
     rows = {};
@@ -759,3 +754,64 @@ function clearAllRows() {
 
 // Add to window for debugging
 window.clearAllRows = clearAllRows;
+
+// Dark Mode Functionality
+function toggleDarkMode() {
+    const body = document.body;
+    const isDarkMode = body.getAttribute('data-theme') === 'dark';
+    const newTheme = isDarkMode ? 'light' : 'dark';
+    
+    body.setAttribute('data-theme', newTheme);
+    
+    // Update the toggle button icon
+    updateDarkModeIcon(newTheme);
+    
+    // Save preference to localStorage
+    localStorage.setItem('darkMode', newTheme);
+    
+    // Show toast notification
+    showToast(`Switched to ${newTheme} mode`, 'info', 2000);
+}
+
+function updateDarkModeIcon(theme) {
+    const icon = document.getElementById('darkModeIcon');
+    if (!icon) return;
+    
+    if (theme === 'dark') {
+        // Moon icon for dark mode
+        icon.innerHTML = `
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        `;
+    } else {
+        // Sun icon for light mode
+        icon.innerHTML = `
+            <circle cx="12" cy="12" r="5"></circle>
+            <path d="M12 1v2"></path>
+            <path d="M12 21v2"></path>
+            <path d="M4.22 4.22l1.42 1.42"></path>
+            <path d="M18.36 18.36l1.42 1.42"></path>
+            <path d="M1 12h2"></path>
+            <path d="M21 12h2"></path>
+            <path d="M4.22 19.78l1.42-1.42"></path>
+            <path d="M18.36 5.64l1.42-1.42"></path>
+        `;
+    }
+}
+
+// Initialize dark mode on page load
+function initializeDarkMode() {
+    const savedTheme = localStorage.getItem('darkMode');
+    const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    // Use saved preference, or fall back to system preference
+    const theme = savedTheme || (prefersDarkMode ? 'dark' : 'light');
+    
+    document.body.setAttribute('data-theme', theme);
+    updateDarkModeIcon(theme);
+}
+
+// Initialize dark mode when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    initializeDarkMode();
+    setupDragAndDrop();
+});
