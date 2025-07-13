@@ -8,13 +8,9 @@ SpotDL Cask transforms the command-line [spotdl](https://github.com/spotDL/spoti
 
 ## Key Features
 
-### **Intuitive Interface**
 - **Drag & Drop Support** - Drop links directly onto the interface
 - **Paste Detection** - Automatically detects links from clipboard (Ctrl+V / ⌘V)
 - **Batch Processing** - Add multiple tracks and download them all at once
-- **Real-time Progress** - Live progress bars with percentage updates
-
-### **Download Options**
 - **Audio Quality Control** - Choose from 128k to 320k bitrates or original quality
 - **Multiple Formats** - MP3, FLAC, M4A, OPUS, OGG, WAV support
 - **Custom Naming** - Flexible filename templates (Artist-Title, Title-Artist, etc.)
@@ -24,7 +20,6 @@ SpotDL Cask transforms the command-line [spotdl](https://github.com/spotDL/spoti
 ### **Backend**
 - **Flask**
 - **spotdl**
-- **Python**
 - **JavaScript**
 - **HTML / CSS**
 

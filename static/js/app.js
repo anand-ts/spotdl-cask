@@ -10,8 +10,6 @@ const zone = document.getElementById('zone');
 
 // Application State
 let rows = {};
-// Track active Server-Sent Events so we can close them on cancel/remove
-const eventStreams = {};
 let settings = {
     quality: 'best',
     format: 'mp3',
@@ -300,11 +298,6 @@ function rmRow(l) {
             if (row.parentElement) {
                 tblBody.removeChild(row);
             }
-            // Close any SSE stream tied to this link
-            if (eventStreams[l]) {
-                eventStreams[l].close();
-                delete eventStreams[l];
-            }
             delete rows[l];
             
             if (!Object.keys(rows).length) {
@@ -342,115 +335,12 @@ function dlOne(link) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ link, ...settings })
     })
-    .then(response => {
-        if (response.ok) {
-            // Close progress stream if still open
-            if (eventStreams[link]) {
-                eventStreams[link].close();
-                delete eventStreams[link];
-            }
-            // Start listening for real-time progress updates via Server-Sent Events
-            startProgressStream(link, progressBar, dlBtn);
-        } else {
-            updateStatus(link, 'error', 'Error');
-            dlBtn.disabled = false;
-            showToast('Download failed', 'error', 4000);
-        }
-    })
     .catch(error => {
         console.error('Download start failed:', error);
         updateStatus(link, 'error', 'Failed');
         dlBtn.disabled = false;
         showToast('Download failed', 'error', 4000);
     });
-}
-
-function startProgressStream(link, progressBar, dlBtn) {
-    if (!rows[link]) return;
-    
-    // Create EventSource for Server-Sent Events
-    const encodedLink = encodeURIComponent(link);
-    const eventSource = new EventSource(`/progress/${encodedLink}`);
-    eventStreams[link] = eventSource; // store reference
-    
-    eventSource.onmessage = function(event) {
-        try {
-            const data = JSON.parse(event.data);
-            
-            if (data.link === link && rows[link]) {
-                // Update progress bar
-                updateProgressBar(progressBar, data.progress);
-                
-                // Check if download is complete
-                if (data.complete) {
-                    eventSource.close();
-                    delete eventStreams[link]; // Close the stream
-                    
-                    if (data.status === 'error') {
-                        updateStatus(link, 'error', 'Error');
-                        dlBtn.disabled = false;
-                        showToast('Download failed', 'error', 4000);
-                    } else {
-                        updateStatus(link, 'completed', 'Downloaded');
-                        const trackTitle = rows[link].querySelector('.title-cell').textContent;
-                        showToast(`Downloaded: ${trackTitle}`, 'success', 4000);
-                    }
-                    
-                    // Update Download All button state
-                    updateDownloadAllButtonState();
-                }
-            }
-        } catch (error) {
-            console.error('Error parsing progress data:', error);
-        }
-    };
-    
-    eventSource.onerror = function(event) {
-        console.error('Progress stream error:', event);
-        eventSource.close();
-        delete eventStreams[link]; // Close the stream
-        
-        // Fallback: check status via polling
-        setTimeout(() => {
-            if (rows[link]) {
-                checkDownloadStatus(link, dlBtn);
-            }
-        }, 1000);
-    };
-    
-    // Clean up on page unload
-    window.addEventListener('beforeunload', () => {
-        eventSource.close();
-    });
-}
-
-function checkDownloadStatus(link, dlBtn) {
-    // Fallback status check if SSE fails
-    fetch(`/status?links=${encodeURIComponent(link)}`)
-        .then(response => response.json())
-        .then(status => {
-            const linkStatus = status[link];
-            if (linkStatus === 'done') {
-                updateStatus(link, 'completed', 'Downloaded');
-                const trackTitle = rows[link].querySelector('.title-cell').textContent;
-                showToast(`Downloaded: ${trackTitle}`, 'success', 4000);
-                updateDownloadAllButtonState();
-            } else if (linkStatus === 'error') {
-                updateStatus(link, 'error', 'Error');
-                dlBtn.disabled = false;
-                showToast('Download failed', 'error', 4000);
-                updateDownloadAllButtonState();
-            } else if (linkStatus === 'downloading') {
-                // Still downloading, check again
-                setTimeout(() => checkDownloadStatus(link, dlBtn), 2000);
-            }
-        })
-        .catch(error => {
-            console.error('Status check failed:', error);
-            updateStatus(link, 'error', 'Failed');
-            dlBtn.disabled = false;
-            updateDownloadAllButtonState();
-        });
 }
 
 function cancelOne(link) {
@@ -469,11 +359,6 @@ function cancelOne(link) {
     })
     .then(response => {
         if (response.ok) {
-            // Close any open SSE stream for this link
-            if (eventStreams[link]) {
-                eventStreams[link].close();
-                delete eventStreams[link];
-            }
             updateStatus(link, 'idle', 'Ready');
             
             // Re-enable the download button
@@ -530,34 +415,31 @@ function dlAll() {
     `;
     allBtn.disabled = true;
     removeAllBtn.disabled = true;
+    // Enable Cancel All right away since we know downloads are in flight
+    cancelAllBtn.disabled = false;
     // Cancel All button will be enabled automatically when downloads start
 }
 
 function cancelAll() {
     const allLinks = Object.keys(rows);
-    if (allLinks.length === 0) return;
-    
-    // Filter out songs that are currently downloading
-    const downloadingLinks = allLinks.filter(link => {
+    if (!allLinks.length) return;
+
+    const linksToCancel = allLinks.filter(link => {
         const row = rows[link];
-        const statusCell = row.querySelector('.status-cell');
-        const statusText = statusCell.querySelector('.status-text');
-        const currentStatus = statusText ? statusText.textContent.trim() : '';
-        
-        // Only cancel if currently downloading
-        return currentStatus === 'Downloading...';
+        if (!row) return false;
+        const statusText = row.querySelector('.status-text')?.textContent.trim() || '';
+        // Only cancel tracks that are actively downloading
+        return statusText === 'Downloading...';
     });
-    
-    if (downloadingLinks.length === 0) {
-        showToast('No downloads to cancel', 'info', 2000);
+
+    if (!linksToCancel.length) {
+        showToast('No active downloads to cancel', 'info', 2000);
         return;
     }
-    
-    const linkCount = downloadingLinks.length;
-    showToast(`Cancelling ${linkCount} download${linkCount > 1 ? 's' : ''}...`, 'info', 2000);
-    
-    // Cancel all downloading tracks
-    downloadingLinks.forEach(cancelOne);
+
+    showToast(`Cancelling ${linksToCancel.length} download${linksToCancel.length > 1 ? 's' : ''}...`, 'info', 2000);
+
+    linksToCancel.forEach(link => cancelOne(link));
 }
 
 function removeAllTracks() {
@@ -628,23 +510,32 @@ setInterval(() => {
     
     fetch('/status?links=' + encodeURIComponent(qs.join(',')))
         .then(r => r.json())
-        .then(st => {
-            qs.forEach(l => {
-                const s = st[l];
-                if (!s || !rows[l]) return;
+        .then(statuses => {
+            qs.forEach(link => {
+                const data = statuses[link];
+                if (!data || !rows[link]) return;
                 
-                if (s === 'done') {
-                    updateStatus(l, 'completed', 'Downloaded');
-                } else if (s === 'error') {
-                    updateStatus(l, 'error', 'error');
-                    rows[l].querySelector('.dlbtn').disabled = false;
+                const currentStatus = rows[link].querySelector('.status-text').textContent.trim();
+                const newStatus = getStatusText(data.status);
+
+                // Update status if it has changed
+                if (currentStatus !== newStatus) {
+                    updateStatus(link, data.status);
+                }
+
+                // Update progress bar for downloading tracks
+                if (data.status === 'downloading') {
+                    const progressBar = rows[link].querySelector('.progress-bar');
+                    if (progressBar) {
+                        updateProgressBar(progressBar, data.progress);
+                    }
                 }
             });
             
             // Update Download All button state based on current status
             updateDownloadAllButtonState();
         });
-}, 2000);
+}, 1000); // Poll every second for smoother progress
 
 // Visual Feedback Functions
 function showToast(message, type = 'info', duration = 4000) {

@@ -62,6 +62,7 @@ def create_app() -> Flask:
     @app.route("/cancel", methods=["POST"])
     def cancel_endpoint():
         """Cancel an active download."""
+        print("CANCEL REQUEST RECEIVED")  # Add this for debugging
         data = request.get_json(force=True)
         link = data.get("link", "")
         
@@ -70,68 +71,6 @@ def create_app() -> Flask:
         
         success = download_manager.cancel_download(link)
         return "", 204 if success else 409
-    
-    @app.route("/progress/<path:link>")
-    def progress_stream(link: str):
-        """Server-Sent Events stream for real-time download progress."""
-        def generate_progress_events():
-            """Generate SSE events for progress updates."""
-            # Set up progress callback
-            progress_updates = []
-            
-            def progress_callback(cb_link: str, progress: float):
-                if cb_link == link:
-                    progress_updates.append(progress)
-            
-            download_manager.add_progress_callback(link, progress_callback)
-            
-            try:
-                # Send initial progress
-                initial_progress = download_manager.get_progress(link)
-                yield f"data: {json.dumps({'progress': initial_progress, 'link': link})}\n\n"
-                
-                # Keep connection alive and send updates
-                last_progress = initial_progress
-                while True:
-                    # Check for new progress updates
-                    if progress_updates:
-                        current_progress = progress_updates[-1]
-                        progress_updates.clear()  # Clear processed updates
-                        
-                        if current_progress != last_progress:
-                            yield f"data: {json.dumps({'progress': current_progress, 'link': link})}\n\n"
-                            last_progress = current_progress
-                        
-                        # If download is complete, send final update and close
-                        if current_progress >= 100:
-                            yield f"data: {json.dumps({'progress': 100, 'link': link, 'complete': True})}\n\n"
-                            break
-                    
-                    # Check if download is no longer active
-                    status = download_manager.status.get(link, "idle")
-                    if status in ["done", "error"]:
-                        final_progress = 100 if status == "done" else last_progress
-                        yield f"data: {json.dumps({'progress': final_progress, 'link': link, 'complete': True, 'status': status})}\n\n"
-                        break
-                    
-                    time.sleep(0.1)  # Small delay to prevent excessive CPU usage
-                    
-            except GeneratorExit:
-                # Client disconnected
-                pass
-            finally:
-                # Clean up callback
-                download_manager.remove_progress_callbacks(link)
-        
-        return Response(
-            generate_progress_events(),
-            mimetype='text/event-stream',
-            headers={
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive',
-                'Access-Control-Allow-Origin': '*',
-            }
-        )
     
     return app
 
@@ -151,7 +90,8 @@ def main():
     # Check if we're in development mode
     if os.getenv('FLASK_ENV') == 'development' or '--dev' in sys.argv:
         # Run Flask directly for development with hot reloading
-        app.run(host='127.0.0.1', port=PORT, debug=True)
+        # Use threaded=True to handle multiple concurrent requests (e.g., SSE and cancel)
+        app.run(host='127.0.0.1', port=PORT, debug=True, threaded=True)
     else:
         # Run in webview for production
         # Start Flask server in background

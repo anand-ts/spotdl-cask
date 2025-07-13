@@ -4,6 +4,8 @@ import subprocess
 import threading
 import re
 import os
+import signal
+import sys
 from typing import Dict, Any, Optional
 from pathlib import Path
 
@@ -24,8 +26,8 @@ class DownloadManager:
         self.download_processes: Dict[str, subprocess.Popen] = {}  # link -> process for canceling
         self.cancelled_downloads: set = set()  # track intentionally cancelled downloads
     
-    def get_status(self, links: list[str]) -> Dict[str, str]:
-        """Get status for multiple links with file existence check."""
+    def get_status(self, links: list[str]) -> Dict[str, Dict[str, Any]]:
+        """Get status and progress for multiple links with file existence check."""
         result = {}
         for link in links:
             cached_status = self.status.get(link, "idle")
@@ -33,15 +35,18 @@ class DownloadManager:
             # If status is "done", verify the file actually exists
             if cached_status == "done":
                 if self._check_file_exists(link):
-                    result[link] = "done"
+                    status = "done"
+                    progress = 100.0
                 else:
                     # File was deleted, reset status
                     self.status[link] = "idle"
-                    result[link] = "idle"
-                    if DEBUG_OUTPUT:
-                        print(f"DEBUG - File not found for {link}, resetting status to idle")
+                    status = "idle"
+                    progress = 0.0
             else:
-                result[link] = cached_status
+                status = cached_status
+                progress = self.progress.get(link, 0.0)
+
+            result[link] = {"status": status, "progress": progress}
                 
         return result
     
@@ -178,14 +183,27 @@ class DownloadManager:
         # Get the process handle
         proc = self.download_processes.get(link)
         if proc:
-            try:
-                proc.terminate()  # Try graceful termination first
-                proc.wait(timeout=2)  # Wait up to 2 seconds
-            except subprocess.TimeoutExpired:
-                proc.kill()  # Force kill if needed
-            except Exception as e:
-                if DEBUG_OUTPUT:
-                    print(f"DEBUG - Error terminating process for {link}: {e}")
+            if sys.platform != "win32":
+                try:
+                    # Kill the entire process group on non-Windows systems
+                    # Use SIGKILL for a more forceful termination
+                    pgid = os.getpgid(proc.pid)
+                    os.killpg(pgid, signal.SIGKILL)
+                    proc.wait(timeout=2)  # Process should terminate quickly
+                except (ProcessLookupError, PermissionError):
+                    pass  # Process already dead or no permissions
+                except Exception as e:
+                    if DEBUG_OUTPUT:
+                        print(f"DEBUG - Error killing process group for {link}: {e}")
+            else:  # On Windows, use original logic
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                except Exception as e:
+                    if DEBUG_OUTPUT:
+                        print(f"DEBUG - Error terminating process for {link}: {e}")
         
         # Clean up
         self.download_processes.pop(link, None)
@@ -386,13 +404,16 @@ class DownloadManager:
                 print(f"DEBUG - Running command: {' '.join(cmd)}")
             
             # Start the process
+            # For non-Windows, start in a new session to allow killing the whole process tree
+            preexec_fn = os.setsid if sys.platform != "win32" else None
             proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 universal_newlines=True,
-                bufsize=0
+                bufsize=0,
+                preexec_fn=preexec_fn
             )
             
             # Store process handle for cancellation
@@ -404,7 +425,10 @@ class DownloadManager:
                 if DEBUG_OUTPUT:
                     print(f"DEBUG - Detected cancellation for {link} right after process start. Terminating.")
                 try:
-                    proc.terminate()
+                    if sys.platform != "win32":
+                        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                    else:
+                        proc.terminate()
                 except Exception:
                     pass
                 proc.wait(timeout=5)
@@ -420,17 +444,9 @@ class DownloadManager:
             # Read output line by line
             if proc.stdout:
                 while True:
-                    # Periodically check for cancellation during download
-                    if link in self.cancelled_downloads:
-                        if DEBUG_OUTPUT:
-                            print(f"DEBUG - Cancellation detected during output loop for {link}. Killing process.")
-                        try:
-                            proc.terminate()
-                        except Exception:
-                            pass
-                        proc.wait(timeout=5)
-                        break
-                    
+                    # Cancellation is now handled by cancel_download which terminates
+                    # the process. readline() will then unblock and return an
+                    # empty string, breaking the loop.
                     line = proc.stdout.readline()
                     if not line:
                         break
