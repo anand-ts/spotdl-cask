@@ -1,6 +1,6 @@
-# SpotDL Cask
+# spotDL Cask
 
-
+![spotdl-cask](/public/spotdl-cask.gif)
 
 ## Project Summary
 
@@ -18,10 +18,14 @@ SpotDL Cask transforms the command-line [spotdl](https://github.com/spotDL/spoti
 ## Tech Stack
 
 ### **Backend**
-- **Flask**
-- **spotdl**
-- **JavaScript**
+- **Flask (Python)** 
+- **pywebview**
+- **spotDL**
+- **RESTful API / JSON**
+
+### **Frontend**
 - **HTML / CSS**
+- **JavaScript**
 
 ## Usage
 
