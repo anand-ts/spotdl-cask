@@ -2,6 +2,7 @@
 const tblBody = document.querySelector('#tbl tbody');
 const ph = document.getElementById('ph');
 const allBtn = document.getElementById('allBtn');
+const cancelAllBtn = document.getElementById('cancelAllBtn');
 const removeAllBtn = document.getElementById('removeAllBtn');
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
@@ -57,6 +58,7 @@ function addRow(link) {
     document.getElementById('tbl').style.display = 'table';
     allBtn.disabled = false;
     removeAllBtn.disabled = false;
+    // Cancel All button will be enabled/disabled based on download status
     
     // Add entrance animation
     requestAnimationFrame(() => {
@@ -293,6 +295,7 @@ function rmRow(l) {
                 ph.style.display = 'block';
                 document.getElementById('tbl').style.display = 'none';
                 allBtn.disabled = true;
+                cancelAllBtn.disabled = true;
                 removeAllBtn.disabled = true;
             }
             
@@ -310,6 +313,9 @@ function dlOne(link) {
     
     dlBtn.disabled = true;
     updateStatus(link, 'downloading', 'Downloading...');
+    
+    // Update Cancel All button state
+    updateCancelAllButtonState();
     
     // Add progress bar
     const progressBar = addProgressBar(statusCell, 0);
@@ -495,6 +501,34 @@ function dlAll() {
     `;
     allBtn.disabled = true;
     removeAllBtn.disabled = true;
+    // Cancel All button will be enabled automatically when downloads start
+}
+
+function cancelAll() {
+    const allLinks = Object.keys(rows);
+    if (allLinks.length === 0) return;
+    
+    // Filter out songs that are currently downloading
+    const downloadingLinks = allLinks.filter(link => {
+        const row = rows[link];
+        const statusCell = row.querySelector('.status-cell');
+        const statusText = statusCell.querySelector('.status-text');
+        const currentStatus = statusText ? statusText.textContent.trim() : '';
+        
+        // Only cancel if currently downloading
+        return currentStatus === 'Downloading...';
+    });
+    
+    if (downloadingLinks.length === 0) {
+        showToast('No downloads to cancel', 'info', 2000);
+        return;
+    }
+    
+    const linkCount = downloadingLinks.length;
+    showToast(`Cancelling ${linkCount} download${linkCount > 1 ? 's' : ''}...`, 'info', 2000);
+    
+    // Cancel all downloading tracks
+    downloadingLinks.forEach(cancelOne);
 }
 
 function removeAllTracks() {
@@ -745,6 +779,7 @@ function updateDownloadAllButtonState() {
     const allLinks = Object.keys(rows);
     if (allLinks.length === 0) {
         resetDownloadAllButton();
+        updateCancelAllButtonState();
         return;
     }
     
@@ -760,6 +795,9 @@ function updateDownloadAllButtonState() {
     if (!isAnyDownloading) {
         resetDownloadAllButton();
     }
+    
+    // Always update Cancel All button state
+    updateCancelAllButtonState();
 }
 
 function resetDownloadAllButton() {
@@ -773,6 +811,25 @@ function resetDownloadAllButton() {
     `;
     allBtn.disabled = false;
     removeAllBtn.disabled = false;
+}
+
+function updateCancelAllButtonState() {
+    const allLinks = Object.keys(rows);
+    if (allLinks.length === 0) {
+        cancelAllBtn.disabled = true;
+        return;
+    }
+    
+    // Check if any tracks are currently downloading
+    const isAnyDownloading = allLinks.some(link => {
+        const row = rows[link];
+        const statusCell = row.querySelector('.status-cell');
+        const statusText = statusCell.querySelector('.status-text');
+        const currentStatus = statusText ? statusText.textContent.trim() : '';
+        return currentStatus === 'Downloading...';
+    });
+    
+    cancelAllBtn.disabled = !isAnyDownloading;
 }
 
 // Dark Mode Functionality
