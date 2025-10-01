@@ -1,6 +1,10 @@
 # spotDL Cask
 
-![spotdl-cask](/public/spotdl-cask.gif)
+<div align="center">
+   <video src="public/spotdl_new.mp4" width="640" autoplay loop muted playsinline>
+      Your browser does not support the video tag. Here is a <a href="public/spotdl_new.mp4">link to the demo video</a>.
+   </video>
+</div>
 
 ## Project Summary
 
