@@ -533,6 +533,24 @@ function showToast(message, type = 'info', duration = 4000) {
     setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, duration);
 }
 
+// Normalize backend progress values. Backend already returns 0..100. Historically
+// we attempted to support 0..1 fractional values which caused a bug: a value of 1
+// (meaning 1%) was interpreted as 100%, making the bar jump to full then restart.
+// We now strictly treat anything >1 as already-percentage and anything between
+// 0 and 1 as ambiguous fractional only when the value is exactly 0 or 1 (edge
+// cases from earlier code). If it's exactly 1 and subsequent values exceed 1 we
+// retro-correct on the next update.
+function normalizeProgress(p) {
+    if (p == null || isNaN(p)) return 0;
+    // If value is between 2 and 100 assume legitimate percentage.
+    if (p >= 2) return Math.min(100, p);
+    // If value is exactly 0 just return 0.
+    if (p === 0) return 0;
+    // If value is exactly 1 but backend uses 0..100 scale, treat as 1% not 100.
+    // (Old fractional handling removed.)
+    return 1; // treat as 1%
+}
+
 function addProgressBar(element, progress = 0) {
     if (!element) return null;
     const existing = element.querySelector('.progress-wrapper');
@@ -542,15 +560,13 @@ function addProgressBar(element, progress = 0) {
     wrapper.className = 'progress-wrapper';
     const bar = document.createElement('div');
     bar.className = 'progress-bar';
-    // Support fractional (0..1) or percentage (0..100)
-    const pct = progress <= 1 ? progress * 100 : progress;
+    const pct = normalizeProgress(progress);
     bar.style.width = `${pct}%`;
     const text = document.createElement('div');
     text.className = 'progress-text';
     text.textContent = `${Math.round(pct)}%`;
     wrapper.appendChild(bar);
     wrapper.appendChild(text);
-    // Append after status block to keep icon/text visible
     if (statusBlock) {
         statusBlock.after(wrapper);
     } else {
@@ -561,12 +577,11 @@ function addProgressBar(element, progress = 0) {
 
 function updateProgressBar(bar, progress) {
     if (!bar) return;
-    const pctRaw = progress <= 1 ? progress * 100 : progress;
-    const clampedProgress = Math.min(100, Math.max(0, pctRaw));
-    bar.style.width = `${clampedProgress}%`;
+    const pct = normalizeProgress(progress);
+    bar.style.width = `${pct}%`;
     const wrapper = bar.parentElement;
     const text = wrapper ? wrapper.querySelector('.progress-text') : null;
-    if (text) text.textContent = `${Math.round(clampedProgress)}%`;
+    if (text) text.textContent = `${Math.round(pct)}%`;
 }
 
 // Drag and Drop

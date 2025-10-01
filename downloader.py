@@ -563,13 +563,17 @@ class DownloadManager:
 
         if self.is_busy(link):
             return False
-        
+
+        # Reset stale progress early so UI doesn't briefly render an old 100% value
+        # before the worker thread initializes it again.
+        self.progress[link] = 0.0
+
         # Mark as downloading immediately to avoid a short-lived "queued" state that can
         # cause race conditions with cancel requests coming from the UI before the
         # background thread has a chance to update the status.
         self.status[link] = "downloading"
         thread = threading.Thread(
-            target=self._run_download, 
+            target=self._run_download,
             args=(link, settings),
             daemon=True
         )
