@@ -69,6 +69,32 @@ header h1 {
     color: var(--text-primary);
     transition: color 0.3s ease;
     font-weight: 500;
+    /* Idle animation applied via the .idle class so we can pause it during activity */
+    background: linear-gradient(90deg, var(--text-primary) 0%, #1db954 50%, var(--text-primary) 100%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent; /* Fallback handled by background-clip; ensures gradient text */
+}
+
+/* More visible idle animation (only when .idle is present) */
+header h1.idle {
+    animation: headerIdleGlow 3s ease-in-out infinite, headerIdleGradient 10s linear infinite;
+}
+
+@keyframes headerIdleGlow {
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(29,185,84,0)); }
+    50% { filter: drop-shadow(0 0 6px rgba(29,185,84,0.55)); }
+}
+
+@keyframes headerIdleGradient {
+    0% { background-position: 0% 50%; }
+    100% { background-position: -200% 50%; }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    header h1.idle { animation: none; filter: none; }
 }
 
 .header-controls {

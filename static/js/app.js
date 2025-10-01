@@ -9,6 +9,42 @@ const removeAllBtn = document.getElementById('removeAllBtn');
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const zone = document.getElementById('zone');
+const headerTitle = document.getElementById('headerTitle');
+
+// Header idle animation state mgmt
+let lastActivityTs = Date.now();
+let headerIdle = true;
+
+function setHeaderIdle(idle) {
+    if (!headerTitle) return;
+    if (idle) {
+        if (!headerTitle.classList.contains('idle')) headerTitle.classList.add('idle');
+        headerIdle = true;
+    } else {
+        if (headerTitle.classList.contains('idle')) headerTitle.classList.remove('idle');
+        headerIdle = false;
+    }
+}
+
+// Mark any user / download activity
+function markActivity() {
+    lastActivityTs = Date.now();
+    if (headerIdle) setHeaderIdle(false);
+}
+
+// Poll for idleness (no downloads and no activity for 5s)
+setInterval(() => {
+    const anyDownloading = Object.keys(rows).some(link => {
+        const row = rows[link];
+        return row && row.querySelector('.status-text')?.textContent.trim() === 'Downloading...';
+    });
+    if (anyDownloading) {
+        markActivity(); // keep active while downloading
+    }
+    if (!anyDownloading && (Date.now() - lastActivityTs) > 5000) {
+        setHeaderIdle(true);
+    }
+}, 1500);
 
 // Application State
 let rows = {};
@@ -23,6 +59,7 @@ let settings = {
 
 // Event Listeners
 document.addEventListener('paste', e => {
+    markActivity();
     const txt = (e.clipboardData || window.clipboardData).getData('text');
     const links = txt.split(/[\s,]+/).filter(t => t.startsWith('http'));
     if (!links.length) {
@@ -37,6 +74,7 @@ document.addEventListener('paste', e => {
 
 // Row Management
 function addRow(link) {
+    markActivity();
     if (rows[link]) {
         showToast('Link already added', 'info', 2000);
         return;
@@ -240,6 +278,7 @@ function getStatusText(status) {
 
 function rmRow(l) {
     if (!rows[l]) return;
+    markActivity();
     
     const row = rows[l];
     const trackTitle = row.querySelector('.title-cell').textContent;
@@ -269,6 +308,7 @@ function rmRow(l) {
 // Download Management
 function dlOne(link) {
     if (!rows[link]) return;
+    markActivity();
     
     const dlBtn = rows[link].querySelector('.dlbtn');
     const statusCell = rows[link].querySelector('.status-cell');
@@ -295,6 +335,7 @@ function dlOne(link) {
 
 function cancelOne(link) {
     if (!rows[link]) return;
+    markActivity();
     
     const cancelBtn = rows[link].querySelector('.cancelbtn');
     const trackTitle = rows[link].querySelector('.title-cell').textContent;
@@ -324,6 +365,7 @@ function cancelOne(link) {
 }
 
 allBtn.addEventListener('click', () => {
+    markActivity();
     const allLinks = Object.keys(rows);
     if (allLinks.length === 0) return;
     
@@ -350,6 +392,7 @@ allBtn.addEventListener('click', () => {
 });
 
 cancelAllBtn.addEventListener('click', () => {
+    markActivity();
     const allLinks = Object.keys(rows);
     if (!allLinks.length) return;
 
@@ -370,6 +413,7 @@ cancelAllBtn.addEventListener('click', () => {
 });
 
 removeAllBtn.addEventListener('click', () => {
+    markActivity();
     const linkCount = Object.keys(rows).length;
     if (linkCount === 0) return;
     
@@ -588,6 +632,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDragAndDrop();
     updateDownloadAllButtonState();
     updateCancelAllButtonState();
+    // Start in idle visual state
+    setHeaderIdle(true);
 });
 
 // Utility functions
