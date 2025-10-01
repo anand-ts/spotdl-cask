@@ -1,5 +1,7 @@
+// Simplified JavaScript for new UI
+
 // DOM Elements
-const tblBody = document.querySelector('#tbl tbody');
+const tblBody = document.querySelector('#tbl-body');
 const ph = document.getElementById('ph');
 const allBtn = document.getElementById('allBtn');
 const cancelAllBtn = document.getElementById('cancelAllBtn');
@@ -58,7 +60,6 @@ function addRow(link) {
     document.getElementById('tbl').style.display = 'table';
     allBtn.disabled = false;
     removeAllBtn.disabled = false;
-    // Cancel All button will be enabled/disabled based on download status
     
     // Add entrance animation
     requestAnimationFrame(() => {
@@ -113,7 +114,7 @@ function createRowElement(link, data) {
     const row = document.createElement('tr');
     row.innerHTML = `
         <td class="cover-cell">
-            <img src="${data.cover}" alt="Cover" style="opacity: ${data.cover ? 1 : 0}">
+            <img src="${data.cover || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'128\' height=\'128\' viewBox=\'0 0 128 128\'%3E%3Crect fill=\'%23333\' width=\'128\' height=\'128\'/%3E%3Cpath fill=\'%23666\' d=\'M64 40c-13.254 0-24 10.746-24 24s10.746 24 24 24 24-10.746 24-24-10.746-24-24-24zm0 40c-8.822 0-16-7.178-16-16s7.178-16 16-16 16 7.178 16 16-7.178 16-16 16z\'/%3E%3Ccircle fill=\'%23666\' cx=\'64\' cy=\'64\' r=\'6\'/%3E%3C/svg%3E'}" alt="Cover" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'128\' height=\'128\' viewBox=\'0 0 128 128\'%3E%3Crect fill=\'%23333\' width=\'128\' height=\'128\'/%3E%3Cpath fill=\'%23666\' d=\'M64 40c-13.254 0-24 10.746-24 24s10.746 24 24 24 24-10.746 24-24-10.746-24-24-24zm0 40c-8.822 0-16-7.178-16-16s7.178-16 16-16 16 7.178 16 16-7.178 16-16 16z\'/%3E%3Ccircle fill=\'%23666\' cx=\'64\' cy=\'64\' r=\'6\'/%3E%3C/svg%3E'">
         </td>
         <td class="title-cell">${data.title}</td>
         <td class="artist-cell">${data.artist}</td>
@@ -127,30 +128,31 @@ function createRowElement(link, data) {
             </div>
         </td>
         <td class="actions-cell">
-            <button class="dlbtn" onclick="dlOne('${link}')" title="Download" ${data.status === 'downloading' ? 'style="display:none"' : ''}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7,10 12,15 17,10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-            </button>
-            <button class="cancelbtn" onclick="cancelOne('${link}')" title="Cancel Download" ${data.status !== 'downloading' ? 'style="display:none"' : ''}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="15" y1="9" x2="9" y2="15"></line>
-                    <line x1="9" y1="9" x2="15" y2="15"></line>
-                </svg>
-            </button>
-            <button class="xbtn" onclick="rmRow('${link}')" title="Remove">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-            </button>
+            <div class="actions">
+                <button class="dlbtn" onclick="dlOne('${link}')" title="Download" ${data.status === 'downloading' ? 'style="display:none"' : ''}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7,10 12,15 17,10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                </button>
+                <button class="cancelbtn" onclick="cancelOne('${link}')" title="Cancel Download" ${data.status !== 'downloading' ? 'style="display:none"' : ''}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                </button>
+                <button class="xbtn" onclick="rmRow('${link}')" title="Remove">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
         </td>
     `;
     
-    // Add loading skeleton if needed
     if (data.status === 'loading') {
         row.classList.add('loading-row');
     }
@@ -163,7 +165,6 @@ function updateRowData(link, data) {
     const row = rows[link];
     if (!row) return;
     
-    // Update cells using class selectors (more robust than indexes)
     const coverImg = row.querySelector('.cover-cell img');
     const titleCell = row.querySelector('.title-cell');
     const artistCell = row.querySelector('.artist-cell');
@@ -172,8 +173,13 @@ function updateRowData(link, data) {
     const statusText = row.querySelector('.status-text');
     
     if (data.cover !== undefined) {
-        coverImg.src = data.cover;
-        coverImg.style.opacity = data.cover ? '1' : '0';
+        if (data.cover) {
+            coverImg.src = data.cover;
+            coverImg.style.opacity = '1';
+        } else {
+            coverImg.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'128\' height=\'128\' viewBox=\'0 0 128 128\'%3E%3Crect fill=\'%23333\' width=\'128\' height=\'128\'/%3E%3Cpath fill=\'%23666\' d=\'M64 40c-13.254 0-24 10.746-24 24s10.746 24 24 24 24-10.746 24-24-10.746-24-24-24zm0 40c-8.822 0-16-7.178-16-16s7.178-16 16-16 16 7.178 16 16-7.178 16-16 16z\'/%3E%3Ccircle fill=\'%23666\' cx=\'64\' cy=\'64\' r=\'6\'/%3E%3C/svg%3E';
+            coverImg.style.opacity = '1';
+        }
     }
     
     if (data.title !== undefined) titleCell.textContent = data.title;
@@ -185,46 +191,25 @@ function updateRowData(link, data) {
         statusIcon.innerHTML = getStatusIcon(data.status);
         statusText.textContent = getStatusText(data.status);
         
-        // Update status container class for special downloading layout
         const statusContainer = row.querySelector('.status');
         if (statusContainer) {
             statusContainer.className = `status ${data.status}`;
         }
         
-        // Update button visibility and state based on status
         const dlBtn = row.querySelector('.dlbtn');
         const cancelBtn = row.querySelector('.cancelbtn');
         const removeBtn = row.querySelector('.xbtn');
         
         if (data.status === 'downloading') {
-            if (dlBtn) {
-                dlBtn.style.display = 'none';
-                dlBtn.disabled = true;
-            }
-            if (cancelBtn) {
-                cancelBtn.style.display = 'flex';
-                cancelBtn.disabled = false;
-            }
-            if (removeBtn) {
-                removeBtn.disabled = true;
-                removeBtn.classList.add('disabled');
-            }
+            if (dlBtn) { dlBtn.style.display = 'none'; dlBtn.disabled = true; }
+            if (cancelBtn) { cancelBtn.style.display = 'flex'; cancelBtn.disabled = false; }
+            if (removeBtn) { removeBtn.disabled = true; }
         } else {
-            if (dlBtn) {
-                dlBtn.style.display = 'flex';
-                dlBtn.disabled = false; // Re-enable for any non-downloading status
-            }
-            if (cancelBtn) {
-                cancelBtn.style.display = 'none';
-                cancelBtn.disabled = false;
-            }
-            if (removeBtn) {
-                removeBtn.disabled = false;
-                removeBtn.classList.remove('disabled');
-            }
+            if (dlBtn) { dlBtn.style.display = 'flex'; dlBtn.disabled = (data.status === 'completed'); }
+            if (cancelBtn) { cancelBtn.style.display = 'none'; cancelBtn.disabled = true; }
+            if (removeBtn) { removeBtn.disabled = false; }
         }
         
-        // Remove loading class if present
         row.classList.remove('loading-row');
     }
 }
@@ -232,30 +217,11 @@ function updateRowData(link, data) {
 // Get status icon SVG
 function getStatusIcon(status) {
     const icons = {
-        loading: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 12a9 9 0 11-6.219-8.56"></path>
-                  </svg>`,
-        idle: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="3"></circle>
-                <circle cx="12" cy="2" r="1"></circle>
-                <circle cx="12" cy="22" r="1"></circle>
-                <circle cx="2" cy="12" r="1"></circle>
-                <circle cx="22" cy="12" r="1"></circle>
-              </svg>`,
-        downloading: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                       <path d="M12 2v6m0 4v10"></path>
-                       <path d="m8 18 4 4 4-4"></path>
-                       <circle cx="12" cy="8" r="2"></circle>
-                     </svg>`,
-        completed: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                     <circle cx="12" cy="12" r="10"></circle>
-                     <path d="m9 12 2 2 4-4"></path>
-                   </svg>`,
-        error: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                 <circle cx="12" cy="12" r="10"></circle>
-                 <path d="M12 8v4"></path>
-                 <path d="m12 16 .01 0"></path>
-               </svg>`
+        loading: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="loading-spinner"><path d="M21 12a9 9 0 11-6.219-8.56"></path></svg>`,
+        idle: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"></circle></svg>`,
+        downloading: ``, // No icon, just progress bar
+        completed: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"></path></svg>`,
+        error: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`
     };
     return icons[status] || icons.idle;
 }
@@ -278,38 +244,25 @@ function rmRow(l) {
     const row = rows[l];
     const trackTitle = row.querySelector('.title-cell').textContent;
     
-    // Get the current height before animating
-    const rowHeight = row.offsetHeight;
-    
-    // Phase 1: Fade out and slide
     row.style.transition = 'all 0.25s ease';
     row.style.opacity = '0';
-    row.style.transform = 'translateX(-20px) scale(0.95)';
+    row.style.transform = 'translateX(-20px)';
     
     setTimeout(() => {
-        // Phase 2: Collapse height
-        row.style.transition = 'all 0.2s ease';
-        row.style.height = '0px';
-        row.style.padding = '0';
-        row.style.margin = '0';
-        row.style.overflow = 'hidden';
+        if (row.parentElement) {
+            tblBody.removeChild(row);
+        }
+        delete rows[l];
         
-        setTimeout(() => {
-            if (row.parentElement) {
-                tblBody.removeChild(row);
-            }
-            delete rows[l];
-            
-            if (!Object.keys(rows).length) {
-                ph.style.display = 'block';
-                document.getElementById('tbl').style.display = 'none';
-                allBtn.disabled = true;
-                cancelAllBtn.disabled = true;
-                removeAllBtn.disabled = true;
-            }
-            
-            showToast(`Removed: ${trackTitle}`, 'info', 2000);
-        }, 200);
+        if (!Object.keys(rows).length) {
+            ph.style.display = 'block';
+            document.getElementById('tbl').style.display = 'none';
+            allBtn.disabled = true;
+            cancelAllBtn.disabled = true;
+            removeAllBtn.disabled = true;
+        }
+        
+        showToast(`Removed: ${trackTitle}`, 'info', 2000);
     }, 250);
 }
 
@@ -321,15 +274,12 @@ function dlOne(link) {
     const statusCell = rows[link].querySelector('.status-cell');
     
     dlBtn.disabled = true;
-    updateStatus(link, 'downloading', 'Downloading...');
+    updateStatus(link, 'downloading');
     
-    // Update Cancel All button state
     updateCancelAllButtonState();
     
-    // Add progress bar
     const progressBar = addProgressBar(statusCell, 0);
     
-    // Start the download
     fetch('/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -337,7 +287,7 @@ function dlOne(link) {
     })
     .catch(error => {
         console.error('Download start failed:', error);
-        updateStatus(link, 'error', 'Failed');
+        updateStatus(link, 'error');
         dlBtn.disabled = false;
         showToast('Download failed', 'error', 4000);
     });
@@ -351,7 +301,6 @@ function cancelOne(link) {
     
     if (cancelBtn) cancelBtn.disabled = true;
     
-    // Send cancel request
     fetch('/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -359,15 +308,8 @@ function cancelOne(link) {
     })
     .then(response => {
         if (response.ok) {
-            updateStatus(link, 'idle', 'Ready');
-            
-            // Re-enable the download button
-            const dlBtn = rows[link].querySelector('.dlbtn');
-            if (dlBtn) dlBtn.disabled = false;
-            
-            // Check if we should update the Download All button state
+            updateStatus(link, 'idle');
             updateDownloadAllButtonState();
-            
             showToast(`Cancelled: ${trackTitle}`, 'info', 3000);
         } else {
             showToast('Failed to cancel download', 'error', 3000);
@@ -381,19 +323,14 @@ function cancelOne(link) {
     });
 }
 
-function dlAll() {
+allBtn.addEventListener('click', () => {
     const allLinks = Object.keys(rows);
     if (allLinks.length === 0) return;
     
-    // Filter out songs that are already downloading or completed
     const pendingLinks = allLinks.filter(link => {
         const row = rows[link];
-        const statusCell = row.querySelector('.status-cell');
-        const statusText = statusCell.querySelector('.status-text');
-        const currentStatus = statusText ? statusText.textContent.trim() : '';
-        
-        // Skip if already downloading or completed
-        return currentStatus !== 'Downloading...' && currentStatus !== 'Downloaded';
+        const statusText = row.querySelector('.status-text')?.textContent.trim() || '';
+        return statusText !== 'Downloading...' && statusText !== 'Downloaded';
     });
     
     if (pendingLinks.length === 0) {
@@ -404,23 +341,15 @@ function dlAll() {
     const linkCount = pendingLinks.length;
     showToast(`Starting download of ${linkCount} track${linkCount > 1 ? 's' : ''}...`, 'info', 3000);
     
-    // Only download pending tracks
     pendingLinks.forEach(dlOne);
     
-    allBtn.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="loading-spinner">
-            <path d="M21 12a9 9 0 11-6.219-8.56"></path>
-        </svg>
-        Downloading…
-    `;
+    allBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="loading-spinner"><path d="M21 12a9 9 0 11-6.219-8.56"></path></svg> Downloading…`;
     allBtn.disabled = true;
     removeAllBtn.disabled = true;
-    // Enable Cancel All right away since we know downloads are in flight
     cancelAllBtn.disabled = false;
-    // Cancel All button will be enabled automatically when downloads start
-}
+});
 
-function cancelAll() {
+cancelAllBtn.addEventListener('click', () => {
     const allLinks = Object.keys(rows);
     if (!allLinks.length) return;
 
@@ -428,7 +357,6 @@ function cancelAll() {
         const row = rows[link];
         if (!row) return false;
         const statusText = row.querySelector('.status-text')?.textContent.trim() || '';
-        // Only cancel tracks that are actively downloading
         return statusText === 'Downloading...';
     });
 
@@ -438,19 +366,16 @@ function cancelAll() {
     }
 
     showToast(`Cancelling ${linksToCancel.length} download${linksToCancel.length > 1 ? 's' : ''}...`, 'info', 2000);
-
     linksToCancel.forEach(link => cancelOne(link));
-}
+});
 
-function removeAllTracks() {
+removeAllBtn.addEventListener('click', () => {
     const linkCount = Object.keys(rows).length;
     if (linkCount === 0) return;
     
     showToast(`Removing all ${linkCount} track${linkCount > 1 ? 's' : ''}...`, 'info', 2000);
-    
-    // Remove all rows with animation
     Object.keys(rows).forEach(link => rmRow(link));
-}
+});
 
 // Settings Management
 function toggleSettings() {
@@ -477,29 +402,16 @@ function applySettings() {
     console.log('Applied settings:', settings);
 }
 
-// Status Icon Management
-function updateStatus(link, status, text) {
+// Status Update
+function updateStatus(link, status) {
     if (!rows[link]) return;
     
-    // Use the new updateRowData function for consistency
-    updateRowData(link, { 
-        status: status 
-    });
+    updateRowData(link, { status: status });
     
-    // Handle progress bars for downloading status
     const statusCell = rows[link].querySelector('.status-cell');
-    if (status === 'downloading') {
-        // Clear any existing progress bars first
-        const existingProgress = statusCell.querySelector('.progress-wrapper');
-        if (existingProgress) {
-            existingProgress.remove();
-        }
-    } else {
-        // Clear progress bars for non-downloading states
-        const existingProgress = statusCell.querySelector('.progress-wrapper');
-        if (existingProgress) {
-            existingProgress.remove();
-        }
+    const existingProgress = statusCell.querySelector('.progress-wrapper');
+    if (status !== 'downloading' && existingProgress) {
+        existingProgress.remove();
     }
 }
 
@@ -515,105 +427,65 @@ setInterval(() => {
                 const data = statuses[link];
                 if (!data || !rows[link]) return;
                 
-                // Map backend "done" status to frontend "completed" status
                 const newStatusName = data.status === 'done' ? 'completed' : data.status;
                 const currentStatusText = rows[link].querySelector('.status-text').textContent.trim();
                 const newStatusText = getStatusText(newStatusName);
 
-                // Update status if it has changed
                 if (currentStatusText !== newStatusText) {
                     updateStatus(link, newStatusName);
                 }
 
-                // Update progress bar for downloading tracks
                 if (data.status === 'downloading') {
-                    const progressBar = rows[link].querySelector('.progress-bar');
-                    if (progressBar) {
-                        updateProgressBar(progressBar, data.progress);
+                    let progressBar = rows[link].querySelector('.progress-bar');
+                    if (!progressBar) {
+                        const statusCell = rows[link].querySelector('.status-cell');
+                        progressBar = addProgressBar(statusCell, data.progress);
                     }
+                    updateProgressBar(progressBar, data.progress);
                 }
             });
             
-            // Update Download All button state based on current status
             updateDownloadAllButtonState();
         });
-}, 1000); // Poll every second for smoother progress
+}, 1000);
 
-// Visual Feedback Functions
+// UI Feedback
 function showToast(message, type = 'info', duration = 4000) {
     const toastContainer = document.getElementById('toastContainer');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     
     const icons = {
-        success: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                    <polyline points="22,4 12,14.01 9,11.01"></polyline>
-                  </svg>`,
-        error: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                 <circle cx="12" cy="12" r="10"></circle>
-                 <line x1="15" y1="9" x2="9" y2="15"></line>
-                 <line x1="9" y1="9" x2="15" y2="15"></line>
-               </svg>`,
-        info: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="16" x2="12" y2="12"></line>
-                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-              </svg>`
+        success: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22,4 12,14.01 9,11.01"></polyline></svg>`,
+        error: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`,
+        info: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`
     };
     
     toast.innerHTML = `
-        <div class="toast-icon" style="color: ${type === 'success' ? 'var(--green)' : type === 'error' ? '#f44336' : '#2196F3'}">
-            ${icons[type]}
-        </div>
+        <div class="toast-icon" style="color: ${type === 'success' ? 'var(--green)' : type === 'error' ? '#f44336' : '#2196F3'}">${icons[type]}</div>
         <div class="toast-message">${message}</div>
-        <button class="toast-close" onclick="hideToast(this.parentElement)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-        </button>
+        <button class="toast-close" onclick="this.parentElement.remove()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
     `;
     
     toastContainer.appendChild(toast);
-    
-    // Trigger animation
     setTimeout(() => toast.classList.add('show'), 10);
-    
-    // Auto-hide
-    setTimeout(() => hideToast(toast), duration);
-    
-    return toast;
+    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, duration);
 }
-
-function hideToast(toast) {
-    toast.classList.remove('show');
-    setTimeout(() => {
-        if (toast.parentElement) {
-            toast.parentElement.removeChild(toast);
-        }
-    }, 300);
-}
-
-function showLoadingOverlay() {
-    document.getElementById('loadingOverlay').classList.add('show');
-}
-
-function hideLoadingOverlay() {
-    document.getElementById('loadingOverlay').classList.remove('show');
-}
-
-
 
 function addProgressBar(element, progress = 0) {
     const wrapper = document.createElement('div');
     wrapper.className = 'progress-wrapper';
-    
     const bar = document.createElement('div');
     bar.className = 'progress-bar';
     bar.style.width = `${progress}%`;
-    
+    const text = document.createElement('div');
+    text.className = 'progress-text';
+    text.textContent = `${Math.round(progress)}%`;
     wrapper.appendChild(bar);
+    wrapper.appendChild(text);
+    
+    // Clear previous content and add progress bar
+    element.innerHTML = '';
     element.appendChild(wrapper);
     
     return bar;
@@ -622,56 +494,24 @@ function addProgressBar(element, progress = 0) {
 function updateProgressBar(bar, progress) {
     const clampedProgress = Math.min(100, Math.max(0, progress));
     bar.style.width = `${clampedProgress}%`;
-    
-    // Update progress text if it exists
-    const progressWrapper = bar.parentElement;
-    let progressText = progressWrapper.querySelector('.progress-text');
-    
-    if (!progressText) {
-        progressText = document.createElement('div');
-        progressText.className = 'progress-text';
-        progressWrapper.appendChild(progressText);
-    }
-    
-    progressText.textContent = `${Math.round(clampedProgress)}%`;
+    const text = bar.nextElementSibling;
+    if (text) text.textContent = `${Math.round(clampedProgress)}%`;
 }
 
-// Enhanced Drag and Drop
+// Drag and Drop
 function setupDragAndDrop() {
     const dropZone = document.getElementById('ph');
     
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, preventDefaults, false);
-        document.body.addEventListener(eventName, preventDefaults, false);
+        dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
+        document.body.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
     });
     
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, highlight, false);
-    });
+    ['dragenter', 'dragover'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false));
+    ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false));
     
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, unhighlight, false);
-    });
-    
-    dropZone.addEventListener('drop', handleDrop, false);
-    
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    
-    function highlight(e) {
-        dropZone.classList.add('drag-over');
-    }
-    
-    function unhighlight(e) {
-        dropZone.classList.remove('drag-over');
-    }
-    
-    function handleDrop(e) {
-        const dt = e.dataTransfer;
-        const text = dt.getData('text');
-        
+    dropZone.addEventListener('drop', e => {
+        const text = e.dataTransfer.getData('text');
         if (text) {
             const links = text.split(/[\s,]+/).filter(t => t.startsWith('http'));
             if (links.length > 0) {
@@ -679,24 +519,10 @@ function setupDragAndDrop() {
                 links.forEach(addRow);
             }
         }
-    }
+    }, false);
 }
 
-// Debug and utility functions
-function clearAllRows() {
-    rows = {};
-    tblBody.innerHTML = '';
-    ph.style.display = 'block';
-    document.getElementById('tbl').style.display = 'none';
-    allBtn.disabled = true;
-    removeAllBtn.disabled = true;
-    showToast('Cleared all tracks', 'info', 2000);
-}
-
-// Expose for debugging
-window.clearAllRows = clearAllRows;
-
-// Download All Button State Management
+// Button State Management
 function updateDownloadAllButtonState() {
     const allLinks = Object.keys(rows);
     if (allLinks.length === 0) {
@@ -704,11 +530,7 @@ function updateDownloadAllButtonState() {
         updateCancelAllButtonState();
         return;
     }
-    const isAnyDownloading = allLinks.some(link => {
-        const row = rows[link];
-        const statusText = row.querySelector('.status-text')?.textContent.trim() || '';
-        return statusText === 'Downloading...';
-    });
+    const isAnyDownloading = allLinks.some(link => rows[link].querySelector('.status-text')?.textContent.trim() === 'Downloading...');
     if (!isAnyDownloading) {
         resetDownloadAllButton();
     }
@@ -716,16 +538,9 @@ function updateDownloadAllButtonState() {
 }
 
 function resetDownloadAllButton() {
-    allBtn.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7,10 12,15 17,10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-        </svg>
-        Download All
-    `;
-    allBtn.disabled = false;
-    removeAllBtn.disabled = false;
+    allBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7,10 12,15 17,10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download All`;
+    allBtn.disabled = (Object.keys(rows).length === 0);
+    removeAllBtn.disabled = (Object.keys(rows).length === 0);
 }
 
 function updateCancelAllButtonState() {
@@ -734,15 +549,11 @@ function updateCancelAllButtonState() {
         cancelAllBtn.disabled = true;
         return;
     }
-    const isAnyDownloading = allLinks.some(link => {
-        const row = rows[link];
-        const statusText = row.querySelector('.status-text')?.textContent.trim() || '';
-        return statusText === 'Downloading...';
-    });
+    const isAnyDownloading = allLinks.some(link => rows[link].querySelector('.status-text')?.textContent.trim() === 'Downloading...');
     cancelAllBtn.disabled = !isAnyDownloading;
 }
 
-// Dark Mode utilities
+// Dark Mode
 function toggleDarkMode() {
     const body = document.body;
     const isDarkMode = body.getAttribute('data-theme') === 'dark';
@@ -759,17 +570,7 @@ function updateDarkModeIcon(theme) {
     if (theme === 'dark') {
         icon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>`;
     } else {
-        icon.innerHTML = `
-            <circle cx="12" cy="12" r="5"></circle>
-            <path d="M12 1v2"></path>
-            <path d="M12 21v2"></path>
-            <path d="M4.22 4.22l1.42 1.42"></path>
-            <path d="M18.36 18.36l1.42 1.42"></path>
-            <path d="M1 12h2"></path>
-            <path d="M21 12h2"></path>
-            <path d="M4.22 19.78l1.42-1.42"></path>
-            <path d="M18.36 5.64l1.42-1.42"></path>
-        `;
+        icon.innerHTML = `<circle cx="12" cy="12" r="5"></circle><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>`;
     }
 }
 
@@ -781,8 +582,49 @@ function initializeDarkMode() {
     updateDarkModeIcon(theme);
 }
 
-// DOM ready initialisation
+// DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     initializeDarkMode();
     setupDragAndDrop();
+    updateDownloadAllButtonState();
+    updateCancelAllButtonState();
 });
+
+// Utility functions
+function resetUI() {
+    // Reset the UI elements to their initial state
+    document.getElementById('progress-container').style.display = 'none';
+    document.getElementById('download-link').style.display = 'none';
+    document.getElementById('status-message').textContent = '';
+}
+
+function showElement(id) {
+    document.getElementById(id).style.display = 'block';
+}
+
+function hideElement(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+function showSongInfo(metadata) {
+    // Display the fetched song metadata
+    document.getElementById('song-title').textContent = metadata.title || 'Unknown Title';
+    document.getElementById('song-artist').textContent = metadata.artist || 'Unknown Artist';
+    document.getElementById('song-album').textContent = metadata.album || 'Unknown Album';
+    document.getElementById('cover-image').src = metadata.cover || 'default-cover.jpg';
+    document.getElementById('cover-image').style.display = 'block';
+}
+
+function updateProgress(progress) {
+    const progressBar = document.getElementById('progress-bar');
+    progressBar.style.width = `${progress}%`;
+    progressBar.setAttribute('aria-valuenow', progress);
+    document.getElementById('progress-text').textContent = `${progress}%`;
+}
+
+function showDownloadLink(filepath) {
+    const downloadLink = document.getElementById('download-link');
+    downloadLink.href = filepath;
+    downloadLink.style.display = 'block';
+    downloadLink.textContent = 'Download your file';
+}

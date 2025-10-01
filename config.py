@@ -3,7 +3,7 @@
 import pathlib
 
 # Application settings
-APP_NAME = "spotDL Bulk Downloader"
+APP_NAME = "spotDL Web Downloader"
 VERSION = "rev-5"
 PORT = 5001
 WINDOW_WIDTH = 920
