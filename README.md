@@ -1,14 +1,12 @@
-# spotDL Cask
+# spotDL Web Downloader
 
-<div align="center">
-   <video src="public/spotdl_new.mp4" width="640" autoplay loop muted playsinline>
-      Your browser does not support the video tag. Here is a <a href="public/spotdl_new.mp4">link to the demo video</a>.
-   </video>
-</div>
+<p align="center">
+   <img src="public/spotdl_new.gif" alt="spotDL Web Downloader demo" width="640" />
+</p>
 
 ## Project Summary
 
-SpotDL Cask transforms the command-line [spotdl](https://github.com/spotDL/spotify-downloader) experience into a user-friendly web application. Simply paste Spotify or YouTube links, configure your download preferences, and let the app handle the rest with real-time progress updates and batch processing capabilities.
+spotDL Web Downloader transforms the command-line [spotdl](https://github.com/spotDL/spotify-downloader) experience into a user-friendly web application. Simply paste Spotify or YouTube links, configure your download preferences, and let the app handle the rest with real-time progress updates and batch processing capabilities.
 
 ## Key Features
 
@@ -36,6 +34,7 @@ SpotDL Cask transforms the command-line [spotdl](https://github.com/spotDL/spoti
 ### **Getting Started**
 
 1. **Clone the repository**
+   (Repository slug remains `spotdl-cask`; the product name is now **spotDL Web Downloader**.)
    ```bash
    git clone https://github.com/yourusername/spotdl-cask.git
    cd spotdl-cask
