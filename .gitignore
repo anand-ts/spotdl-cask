@@ -240,40 +240,47 @@ $RECYCLE.BIN/
 # .nfs files are created when an open file is removed but is still being accessed
 .nfs*
 
-# Application specific files
-# Downloaded music files
-downloads/
-Downloads/
+###############################################
+# Project specific additions / cleanup below  #
+###############################################
 
-# SpotDL cache and config (these are user-specific)
+# Download output directory configured in config.py (ensure we don't commit user media)
+Downloads/spotdl/
+
+# SpotDL cache and config (user specific)
 .spotdl/
 *.spotdl
 
-# Backup files
+# Local environment / secrets
+.env
+.env.local
+.python-version
+
+# Backup / temp artifacts
 *.bak
 *.backup
 *.orig
-
-# Log files
-*.log
-
-# Temporary files
 *.tmp
 *.temp
-
-# IDE and editor files
 *.swp
 *.swo
-*~
 
-# OS generated files
-.DS_Store?
-ehthumbs.db
-Icon?
-Thumbs.db
+# Logs (runtime)
+*.log
 
-# Application builds and distributions
+# Frontend build artifacts (future-proof if bundler added)
+node_modules/
+*.tsbuildinfo
+
+# Electron / packaged app placeholders (if later introduced)
 spotdl_gui.exe
 spotdl_gui.app
-build/
+
+# Explicitly ignore platform noise (some already covered above, deduped) 
+.DS_Store
+Thumbs.db
+Icon?
+
+# Avoid committing compiled dist if future packaging is reintroduced
 dist/
+build/
