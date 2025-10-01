@@ -14,6 +14,7 @@ const headerTitle = document.getElementById('headerTitle');
 // Header idle animation state mgmt
 let lastActivityTs = Date.now();
 let headerIdle = true;
+const IDLE_ANIMATION_DELAY_MS = 5000; // configurable idle timeout
 
 function setHeaderIdle(idle) {
     if (!headerTitle) return;
@@ -41,7 +42,7 @@ setInterval(() => {
     if (anyDownloading) {
         markActivity(); // keep active while downloading
     }
-    if (!anyDownloading && (Date.now() - lastActivityTs) > 5000) {
+    if (!anyDownloading && (Date.now() - lastActivityTs) > IDLE_ANIMATION_DELAY_MS) {
         setHeaderIdle(true);
     }
 }, 1500);
@@ -56,6 +57,9 @@ let settings = {
     skipExplicit: false,
     generateLrc: false
 };
+
+// Cache of last applied statuses to minimize DOM thrash
+const lastStatusCache = {};
 
 // Event Listeners
 document.addEventListener('paste', e => {
@@ -150,6 +154,8 @@ function addRow(link) {
 // Create a table row element with given data
 function createRowElement(link, data) {
     const row = document.createElement('tr');
+    row.dataset.link = link;
+    row.dataset.status = data.status || 'idle';
     row.innerHTML = `
         <td class="cover-cell">
             <img src="${data.cover || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'128\' height=\'128\' viewBox=\'0 0 128 128\'%3E%3Crect fill=\'%23333\' width=\'128\' height=\'128\'/%3E%3Cpath fill=\'%23666\' d=\'M64 40c-13.254 0-24 10.746-24 24s10.746 24 24 24 24-10.746 24-24-10.746-24-24-24zm0 40c-8.822 0-16-7.178-16-16s7.178-16 16-16 16 7.178 16 16-7.178 16-16 16z\'/%3E%3Ccircle fill=\'%23666\' cx=\'64\' cy=\'64\' r=\'6\'/%3E%3C/svg%3E'}" alt="Cover" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'128\' height=\'128\' viewBox=\'0 0 128 128\'%3E%3Crect fill=\'%23333\' width=\'128\' height=\'128\'/%3E%3Cpath fill=\'%23666\' d=\'M64 40c-13.254 0-24 10.746-24 24s10.746 24 24 24 24-10.746 24-24-10.746-24-24-24zm0 40c-8.822 0-16-7.178-16-16s7.178-16 16-16 16 7.178 16 16-7.178 16-16 16z\'/%3E%3Ccircle fill=\'%23666\' cx=\'64\' cy=\'64\' r=\'6\'/%3E%3C/svg%3E'">
@@ -228,6 +234,7 @@ function updateRowData(link, data) {
         statusIcon.className = `status-icon ${data.status}`;
         statusIcon.innerHTML = getStatusIcon(data.status);
         statusText.textContent = getStatusText(data.status);
+        row.dataset.status = data.status;
         
         const statusContainer = row.querySelector('.status');
         if (statusContainer) {
@@ -371,8 +378,8 @@ allBtn.addEventListener('click', () => {
     
     const pendingLinks = allLinks.filter(link => {
         const row = rows[link];
-        const statusText = row.querySelector('.status-text')?.textContent.trim() || '';
-        return statusText !== 'Downloading...' && statusText !== 'Downloaded';
+        const st = row?.dataset.status;
+        return st !== 'downloading' && st !== 'completed' && st !== 'loading' && st !== 'error';
     });
     
     if (pendingLinks.length === 0) {
@@ -385,7 +392,7 @@ allBtn.addEventListener('click', () => {
     
     pendingLinks.forEach(dlOne);
     
-    allBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="loading-spinner"><path d="M21 12a9 9 0 11-6.219-8.56"></path></svg> Downloading…`;
+    allBtn.innerHTML = `<span class="agg-progress">0%</span> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="loading-spinner"><path d="M21 12a9 9 0 11-6.219-8.56"></path></svg> Downloading…`;
     allBtn.disabled = true;
     removeAllBtn.disabled = true;
     cancelAllBtn.disabled = false;
@@ -453,9 +460,11 @@ function updateStatus(link, status) {
     updateRowData(link, { status: status });
     
     const statusCell = rows[link].querySelector('.status-cell');
-    const existingProgress = statusCell.querySelector('.progress-wrapper');
-    if (status !== 'downloading' && existingProgress) {
-        existingProgress.remove();
+    if (statusCell) {
+        const existingProgress = statusCell.querySelector('.progress-wrapper');
+        if (status !== 'downloading' && existingProgress) {
+            existingProgress.remove();
+        }
     }
 }
 
@@ -467,16 +476,16 @@ setInterval(() => {
     fetch('/status?links=' + encodeURIComponent(qs.join(',')))
         .then(r => r.json())
         .then(statuses => {
+            let totalProgress = 0;
+            let activeCount = 0;
             qs.forEach(link => {
                 const data = statuses[link];
                 if (!data || !rows[link]) return;
                 
                 const newStatusName = data.status === 'done' ? 'completed' : data.status;
-                const currentStatusText = rows[link].querySelector('.status-text').textContent.trim();
-                const newStatusText = getStatusText(newStatusName);
-
-                if (currentStatusText !== newStatusText) {
+                if (lastStatusCache[link] !== newStatusName) {
                     updateStatus(link, newStatusName);
+                    lastStatusCache[link] = newStatusName;
                 }
 
                 if (data.status === 'downloading') {
@@ -486,10 +495,18 @@ setInterval(() => {
                         progressBar = addProgressBar(statusCell, data.progress);
                     }
                     updateProgressBar(progressBar, data.progress);
+                    totalProgress += (data.progress <= 1 ? data.progress * 100 : data.progress);
+                    activeCount += 1;
                 }
             });
             
             updateDownloadAllButtonState();
+            // Update aggregate progress if button is in downloading state
+            if (activeCount > 0 && allBtn.innerHTML.includes('Downloading')) {
+                const aggPct = Math.round(totalProgress / activeCount);
+                const span = allBtn.querySelector('.agg-progress');
+                if (span) span.textContent = `${aggPct}%`;
+            }
         });
 }, 1000);
 
@@ -517,28 +534,38 @@ function showToast(message, type = 'info', duration = 4000) {
 }
 
 function addProgressBar(element, progress = 0) {
+    if (!element) return null;
+    const existing = element.querySelector('.progress-wrapper');
+    if (existing) return existing.querySelector('.progress-bar');
+    const statusBlock = element.querySelector('.status');
     const wrapper = document.createElement('div');
     wrapper.className = 'progress-wrapper';
     const bar = document.createElement('div');
     bar.className = 'progress-bar';
-    bar.style.width = `${progress}%`;
+    // Support fractional (0..1) or percentage (0..100)
+    const pct = progress <= 1 ? progress * 100 : progress;
+    bar.style.width = `${pct}%`;
     const text = document.createElement('div');
     text.className = 'progress-text';
-    text.textContent = `${Math.round(progress)}%`;
+    text.textContent = `${Math.round(pct)}%`;
     wrapper.appendChild(bar);
     wrapper.appendChild(text);
-    
-    // Clear previous content and add progress bar
-    element.innerHTML = '';
-    element.appendChild(wrapper);
-    
+    // Append after status block to keep icon/text visible
+    if (statusBlock) {
+        statusBlock.after(wrapper);
+    } else {
+        element.appendChild(wrapper);
+    }
     return bar;
 }
 
 function updateProgressBar(bar, progress) {
-    const clampedProgress = Math.min(100, Math.max(0, progress));
+    if (!bar) return;
+    const pctRaw = progress <= 1 ? progress * 100 : progress;
+    const clampedProgress = Math.min(100, Math.max(0, pctRaw));
     bar.style.width = `${clampedProgress}%`;
-    const text = bar.nextElementSibling;
+    const wrapper = bar.parentElement;
+    const text = wrapper ? wrapper.querySelector('.progress-text') : null;
     if (text) text.textContent = `${Math.round(clampedProgress)}%`;
 }
 
@@ -574,7 +601,7 @@ function updateDownloadAllButtonState() {
         updateCancelAllButtonState();
         return;
     }
-    const isAnyDownloading = allLinks.some(link => rows[link].querySelector('.status-text')?.textContent.trim() === 'Downloading...');
+    const isAnyDownloading = allLinks.some(link => rows[link].dataset.status === 'downloading');
     if (!isAnyDownloading) {
         resetDownloadAllButton();
     }
@@ -593,7 +620,7 @@ function updateCancelAllButtonState() {
         cancelAllBtn.disabled = true;
         return;
     }
-    const isAnyDownloading = allLinks.some(link => rows[link].querySelector('.status-text')?.textContent.trim() === 'Downloading...');
+    const isAnyDownloading = allLinks.some(link => rows[link].dataset.status === 'downloading');
     cancelAllBtn.disabled = !isAnyDownloading;
 }
 
