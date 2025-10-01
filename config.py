@@ -24,12 +24,9 @@ DEFAULT_SETTINGS = {
 
 # SpotDL command options mapping
 QUALITY_OPTIONS = {
-    "best": None,  # Don't add --bitrate flag for best
-    "320k": "320k",
-    "256k": "256k", 
-    "192k": "192k",
-    "128k": "128k",
-    "disable": "disable"
+    "best": None,  # Don't add --bitrate flag for best (highest available)
+    "default": "192k",  # Good balance of quality and file size
+    "efficient": "128k",  # Smaller file size, decent quality
 }
 
 FORMAT_OPTIONS = [
