@@ -1,7 +1,7 @@
 # spotDL Web Downloader
 
 <p align="center">
-   <video src="public/spotdl_new.mp4" alt="spotDL Web Downloader demo" width="640" autoplay loop muted playsinline />
+   <img src="public/spotdl_cask_new.gif" alt="spotDL Web Downloader demo" width="640" />
 </p>
 
 ## Project Summary
