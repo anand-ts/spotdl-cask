@@ -1,7 +1,7 @@
 # spotDL Web Downloader
 
 <p align="center">
-   <img src="public/spotdl_cask_new.gif" alt="spotDL Web Downloader demo" width="640" />
+   <img src="public/spotdl_cask_new.gif?v=1" alt="spotDL Web Downloader demo" width="640" />
 </p>
 
 ## Project Summary
