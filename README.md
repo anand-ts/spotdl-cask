@@ -1,7 +1,7 @@
 # spotDL Web Downloader
 
 <p align="center">
-   <img src="public/spotdl_new.gif" alt="spotDL Web Downloader demo" width="640" />
+   <video src="public/spotdl_new.mp4" alt="spotDL Web Downloader demo" width="640" autoplay loop muted playsinline />
 </p>
 
 ## Project Summary
@@ -20,14 +20,17 @@ spotDL Web Downloader transforms the command-line [spotdl](https://github.com/sp
 ## Tech Stack
 
 ### **Backend**
-- **Flask (Python)** 
+- **Flask**
 - **pywebview**
-- **spotDL**
-- **RESTful API / JSON**
+- **spotDL** (`spotdl>=4.0.0`)
+- **RESTful API**
+- **Server-Sent Events (SSE)**
 
 ### **Frontend**
-- **HTML / CSS**
 - **JavaScript**
+- **HTML5**
+- **CSS3**
+- **SVG**
 
 ## Usage
 
