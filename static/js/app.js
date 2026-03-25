@@ -60,6 +60,7 @@ let settings = {
 
 // Cache of last applied statuses to minimize DOM thrash
 const lastStatusCache = {};
+const lastErrorCache = {};
 
 // Event Listeners
 document.addEventListener('paste', e => {
@@ -83,6 +84,9 @@ function addRow(link) {
         showToast('Link already added', 'info', 2000);
         return;
     }
+
+    delete lastStatusCache[link];
+    delete lastErrorCache[link];
     
     // Create row with loading state using template
     const row = createRowElement(link, {
@@ -121,7 +125,13 @@ function addRow(link) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ link })
     })
-    .then(response => response.json())
+    .then(async response => {
+        const metadata = await response.json();
+        if (!response.ok) {
+            throw new Error(metadata.error || 'Failed to load track metadata');
+        }
+        return metadata;
+    })
     .then(metadata => {
         if (!rows[link]) return; // Row was removed during fetch
         
@@ -141,13 +151,13 @@ function addRow(link) {
         
         updateRowData(link, {
             cover: '',
-            title: 'Error loading metadata',
-            artist: 'Error',
-            album: 'Error',
+            title: 'Metadata unavailable',
+            artist: '',
+            album: '',
             status: 'error'
         });
         
-        showToast('Failed to load track metadata', 'error', 3000);
+        showToast(error.message || 'Failed to load track metadata', 'error', 6000);
     });
 }
 
@@ -299,6 +309,8 @@ function rmRow(l) {
             tblBody.removeChild(row);
         }
         delete rows[l];
+        delete lastStatusCache[l];
+        delete lastErrorCache[l];
         
         if (!Object.keys(rows).length) {
             ph.style.display = 'block';
@@ -320,6 +332,7 @@ function dlOne(link) {
     const dlBtn = rows[link].querySelector('.dlbtn');
     const statusCell = rows[link].querySelector('.status-cell');
     
+    delete lastErrorCache[link];
     dlBtn.disabled = true;
     updateStatus(link, 'downloading');
     
@@ -332,11 +345,20 @@ function dlOne(link) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ link, ...settings })
     })
+    .then(async response => {
+        if (response.ok) return;
+
+        if (response.status === 409) {
+            throw new Error('Download could not be started for this track.');
+        }
+
+        throw new Error('Download failed to start.');
+    })
     .catch(error => {
         console.error('Download start failed:', error);
         updateStatus(link, 'error');
         dlBtn.disabled = false;
-        showToast('Download failed', 'error', 4000);
+        showToast(error.message || 'Download failed', 'error', 4000);
     });
 }
 
@@ -470,7 +492,7 @@ function updateStatus(link, status) {
 
 // Status Polling
 setInterval(() => {
-    const qs = Object.keys(rows);
+    const qs = Object.keys(rows).filter(link => rows[link]?.dataset.status === 'downloading');
     if (!qs.length) return;
     
     fetch('/status?links=' + encodeURIComponent(qs.join(',')))
@@ -486,6 +508,11 @@ setInterval(() => {
                 if (lastStatusCache[link] !== newStatusName) {
                     updateStatus(link, newStatusName);
                     lastStatusCache[link] = newStatusName;
+                }
+
+                if (newStatusName === 'error' && data.error_message && lastErrorCache[link] !== data.error_message) {
+                    lastErrorCache[link] = data.error_message;
+                    showToast(data.error_message, 'error', 7000);
                 }
 
                 if (data.status === 'downloading') {

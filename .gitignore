@@ -254,7 +254,6 @@ Downloads/spotdl/
 # Local environment / secrets
 .env
 .env.local
-.python-version
 
 # Backup / temp artifacts
 *.bak

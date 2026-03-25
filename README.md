@@ -43,23 +43,29 @@ spotDL Web Downloader transforms the command-line [spotdl](https://github.com/sp
    cd spotdl-cask
    ```
 
-2. **Install dependencies**
+2. **Sync the project with `uv`**
    ```bash
-   pip install -r requirements.txt
+   uv sync
    ```
+   This creates and manages the project's `.venv` for you. No manual activation is needed.
 
 3. **Run the application**
    ```bash
-   python app.py
+   uv run app.py
    ```
+   This opens the desktop app window via `pywebview`.
    
    For development mode with debug enabled:
    ```bash
-   python app.py --dev
+   uv run app.py --dev
    ```
 
-4. **Open your browser**
-   - Navigate to `http://localhost:5000`
+4. **Open your browser for development mode**
+   - Navigate to `http://127.0.0.1:5001`
+
+## Python Version
+
+`spotdl` currently requires Python `<3.14`, so this repo pins `3.11.13` via `.python-version`. `uv sync` will use that version automatically.
 
 ## Acknowledgments
 

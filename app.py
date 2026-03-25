@@ -3,11 +3,17 @@
 import threading
 import time
 import json
-from flask import Flask, request, jsonify, render_template, Response
-import webview
+
+try:
+    from flask import Flask, request, jsonify, render_template, Response
+    import webview
+except ImportError as exc:
+    raise SystemExit(
+        "Missing app dependencies. Run `uv sync` and then `uv run app.py`."
+    ) from exc
 
 from config import APP_NAME, PORT, WINDOW_WIDTH, WINDOW_HEIGHT
-from spotify_client import spotify_manager
+from spotify_client import MetadataError, spotify_manager
 from downloader import download_manager
 
 
@@ -28,8 +34,15 @@ def create_app() -> Flask:
         
         if not link:
             return jsonify({"error": "Missing link"}), 400
-        
-        metadata = spotify_manager.get_metadata(link)
+
+        try:
+            metadata = spotify_manager.get_metadata(link)
+        except MetadataError as exc:
+            payload = {"error": str(exc), "code": exc.code}
+            if exc.retry_after is not None:
+                payload["retry_after"] = exc.retry_after
+            return jsonify(payload), 429 if exc.code == "rate_limited" else 502
+
         return jsonify(metadata)
     
     @app.route("/download", methods=["POST"])
@@ -76,8 +89,10 @@ def create_app() -> Flask:
 
 
 def run_server(app: Flask) -> None:
-    """Run Flask server in a separate thread."""
-    app.run(port=PORT, threaded=True, debug=True)
+    """Run Flask server in a separate thread for the desktop window."""
+    # The Werkzeug reloader installs signal handlers and must stay on the main
+    # thread, so keep the embedded server path non-debug.
+    app.run(host="127.0.0.1", port=PORT, threaded=True, debug=False, use_reloader=False)
 
 
 def main():

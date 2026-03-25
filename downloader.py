@@ -25,6 +25,7 @@ class DownloadManager:
         self.downloaded_files: Dict[str, str] = {}  # link -> actual filename that was downloaded
         self.download_processes: Dict[str, subprocess.Popen] = {}  # link -> process for canceling
         self.cancelled_downloads: set = set()  # track intentionally cancelled downloads
+        self.errors: Dict[str, str] = {}  # link -> latest friendly error message
     
     def get_status(self, links: list[str]) -> Dict[str, Dict[str, Any]]:
         """Get status and progress for multiple links with file existence check."""
@@ -47,6 +48,8 @@ class DownloadManager:
                 progress = self.progress.get(link, 0.0)
 
             result[link] = {"status": status, "progress": progress}
+            if status == "error" and link in self.errors:
+                result[link]["error_message"] = self.errors[link]
                 
         return result
     
@@ -172,6 +175,7 @@ class DownloadManager:
             # Ensure status is reset
             self.status[link] = "idle"
             self.progress[link] = 0.0
+            self.errors.pop(link, None)
             if DEBUG_OUTPUT:
                 print(f"DEBUG - Pre-download cancellation recorded for: {link}")
             return True
@@ -209,6 +213,7 @@ class DownloadManager:
         self.download_processes.pop(link, None)
         self.status[link] = "idle"
         self.progress[link] = 0.0
+        self.errors.pop(link, None)
         self.remove_progress_callbacks(link)
         
         if DEBUG_OUTPUT:
@@ -236,6 +241,8 @@ class DownloadManager:
             "spotdl", 
             "download", 
             link, 
+            "--max-retries",
+            "0",
             "--output", 
             f"{DOWNLOAD_DIR}/{output_template}"
         ]
@@ -261,6 +268,45 @@ class DownloadManager:
             cmd.append("--generate-lrc")
         
         return cmd
+
+    @staticmethod
+    def _is_rate_limited_output(line: str) -> bool:
+        """Detect spotDL/Spotify rate-limit output lines."""
+        lower_line = line.lower()
+        return (
+            "rate/request limit" in lower_line
+            or "retry will occur after:" in lower_line
+            or "http status: 429" in lower_line
+        )
+
+    @staticmethod
+    def _format_error_message(line: Optional[str]) -> str:
+        """Convert raw process output into a friendlier UI message."""
+        if not line:
+            return "Download failed."
+
+        if DownloadManager._is_rate_limited_output(line):
+            retry_match = re.search(r"after:\s*(\d+)\s*s", line, re.IGNORECASE)
+            if retry_match:
+                retry_after = retry_match.group(1)
+                return (
+                    "Spotify API rate limited this download. "
+                    f"Retry after about {retry_after} seconds, or update your spotDL Spotify credentials."
+                )
+            return (
+                "Spotify API rate limited this download. "
+                "Wait for the quota reset or update your spotDL Spotify credentials."
+            )
+
+        return line
+
+    @staticmethod
+    def _terminate_process(proc: subprocess.Popen) -> None:
+        """Terminate a spotDL subprocess and its children."""
+        if sys.platform != "win32":
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        else:
+            proc.terminate()
     
     def _parse_progress_from_output(self, line: str) -> Optional[float]:
         """
@@ -328,6 +374,8 @@ class DownloadManager:
         start_time = time.time()
         real_progress_found = False
         last_progress = 0.0
+        last_output_line: Optional[str] = None
+        failure_reason: Optional[str] = None
         download_phases = {
             'processing': False,
             'downloading': False,
@@ -455,8 +503,26 @@ class DownloadManager:
                     lines_seen += 1
                     
                     if line:
+                        last_output_line = line
                         if DEBUG_OUTPUT:
                             print(f"SpotDL output (line {lines_seen}): {line}")
+
+                        if self._is_rate_limited_output(line):
+                            failure_reason = self._format_error_message(line)
+                            self.errors[link] = failure_reason
+                            self.status[link] = "error"
+                            self.progress[link] = 0.0
+                            if DEBUG_OUTPUT:
+                                print(f"DEBUG - Rate limit detected for {link}: {failure_reason}")
+                            try:
+                                self._terminate_process(proc)
+                            except Exception as terminate_error:
+                                if DEBUG_OUTPUT:
+                                    print(
+                                        "DEBUG - Failed to terminate rate-limited process "
+                                        f"for {link}: {terminate_error}"
+                                    )
+                            break
                         
                         # Detect download phases from SpotDL output
                         lower_line = line.lower()
@@ -509,6 +575,7 @@ class DownloadManager:
             
             if proc.returncode == 0:
                 self.status[link] = "done"
+                self.errors.pop(link, None)
                 # Smooth transition to 100%
                 if last_progress < 100:
                     self._update_progress(link, 100.0)
@@ -525,7 +592,10 @@ class DownloadManager:
                 else:
                     # This was a real error, not a cancellation
                     self.status[link] = "error"
+                    failure_reason = failure_reason or self._format_error_message(last_output_line)
+                    self.errors[link] = failure_reason
                     print(f"Download failed for {link} with return code: {proc.returncode}")
+                    print(f"Download failure reason: {failure_reason}")
                 
         except Exception as e:
             # Check if this was an intentional cancellation
@@ -534,6 +604,7 @@ class DownloadManager:
                     print(f"DEBUG - Download was cancelled (exception: {e}), keeping status as-is")
             else:
                 self.status[link] = "error"
+                self.errors[link] = self._format_error_message(str(e))
                 print(f"Download error for {link}: {e}")
         finally:
             # Clean up callbacks and process handle
@@ -567,6 +638,7 @@ class DownloadManager:
         # Reset stale progress early so UI doesn't briefly render an old 100% value
         # before the worker thread initializes it again.
         self.progress[link] = 0.0
+        self.errors.pop(link, None)
 
         # Mark as downloading immediately to avoid a short-lived "queued" state that can
         # cause race conditions with cancel requests coming from the UI before the
