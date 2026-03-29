@@ -1,11 +1,9 @@
 """Main Flask application with modular structure."""
 
 import threading
-import time
-import json
 
 try:
-    from flask import Flask, request, jsonify, render_template, Response
+    from flask import Flask, jsonify, render_template, request
     import webview
 except ImportError as exc:
     raise SystemExit(
@@ -53,15 +51,17 @@ def create_app() -> Flask:
         
         if not link:
             return "", 400
-        
-        if download_manager.is_busy(link):
-            return "", 204  # Already downloading or done
-        
+
         # Extract settings from request (excluding the link)
         settings = {k: v for k, v in data.items() if k != "link"}
-        
-        success = download_manager.start_download(link, settings)
-        return "", 204 if success else 409
+        download_input = spotify_manager.get_download_input(link)
+        settings["_download_input"] = download_input["input"]
+        settings["_temporary_input_file"] = download_input["temporary_input_file"]
+
+        # The download manager treats redundant starts and short-lived
+        # pre-start cancellations as idempotent no-ops, so the API stays 204.
+        download_manager.start_download(link, settings)
+        return "", 204
     
     @app.route("/status")
     def status_endpoint():

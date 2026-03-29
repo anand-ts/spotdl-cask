@@ -9,3 +9,8 @@ dependencies = [
     "pywebview==6.1",
     "spotdl==4.4.3",
 ]
+
+[dependency-groups]
+dev = [
+    "ty>=0.0.26",
+]

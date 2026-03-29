@@ -67,6 +67,16 @@ spotDL Web Downloader transforms the command-line [spotdl](https://github.com/sp
 
 `spotdl` currently requires Python `<3.14`, so this repo pins `3.11.13` via `.python-version`. `uv sync` will use that version automatically.
 
+## Spotify Credentials
+
+Spotify links rely on Spotify API credentials loaded by `spotdl`, usually from `~/.spotdl/config.json`.
+
+If you start seeing HTTP 429 or `Retry-After` responses for every Spotify link, the current credentials are rate limited. Update the `client_id` and `client_secret` in `~/.spotdl/config.json`, or override them when launching the app:
+
+```bash
+SPOTDL_CLIENT_ID=your_client_id SPOTDL_CLIENT_SECRET=your_client_secret uv run app.py --dev
+```
+
 ## Acknowledgments
 
 - Built on top of the excellent [spotDL](https://github.com/spotDL/spotify-downloader) project

@@ -61,6 +61,29 @@ let settings = {
 // Cache of last applied statuses to minimize DOM thrash
 const lastStatusCache = {};
 const lastErrorCache = {};
+const DEFAULT_COVER_DATA_URI = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128' viewBox='0 0 128 128'%3E%3Crect fill='%23333' width='128' height='128'/%3E%3Cpath fill='%23666' d='M64 40c-13.254 0-24 10.746-24 24s10.746 24 24 24 24-10.746 24-24-10.746-24-24-24zm0 40c-8.822 0-16-7.178-16-16s7.178-16 16-16 16 7.178 16 16-7.178 16-16 16z'/%3E%3Ccircle fill='%23666' cx='64' cy='64' r='6'/%3E%3C/svg%3E";
+const BUTTON_ICONS = {
+    download: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7,10 12,15 17,10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+    </svg>`,
+    cancel: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="15" y1="9" x2="9" y2="15"></line>
+        <line x1="9" y1="9" x2="15" y2="15"></line>
+    </svg>`,
+    remove: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>`
+};
+const TOAST_ICONS = {
+    success: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22,4 12,14.01 9,11.01"></polyline></svg>`,
+    error: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`,
+    info: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`
+};
+const CLOSE_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
 // Event Listeners
 document.addEventListener('paste', e => {
@@ -161,56 +184,118 @@ function addRow(link) {
     });
 }
 
+function getCoverSrc(cover) {
+    return cover || DEFAULT_COVER_DATA_URI;
+}
+
+function setCoverImage(img, cover) {
+    img.src = getCoverSrc(cover);
+    img.style.opacity = '1';
+}
+
+function createActionButton({ className, title, icon, hidden = false, onClick }) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.title = title;
+    button.innerHTML = icon;
+    if (hidden) {
+        button.style.display = 'none';
+    }
+    button.addEventListener('click', onClick);
+    return button;
+}
+
+function createStatusElement(status) {
+    const statusContainer = document.createElement('div');
+    statusContainer.className = `status ${status}`;
+
+    const statusIcon = document.createElement('span');
+    statusIcon.className = `status-icon ${status}`;
+    statusIcon.innerHTML = getStatusIcon(status);
+
+    const statusText = document.createElement('span');
+    statusText.className = 'status-text';
+    statusText.textContent = getStatusText(status);
+
+    statusContainer.appendChild(statusIcon);
+    statusContainer.appendChild(statusText);
+    return statusContainer;
+}
+
 // Create a table row element with given data
 function createRowElement(link, data) {
+    const status = data.status || 'idle';
     const row = document.createElement('tr');
     row.dataset.link = link;
-    row.dataset.status = data.status || 'idle';
-    row.innerHTML = `
-        <td class="cover-cell">
-            <img src="${data.cover || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'128\' height=\'128\' viewBox=\'0 0 128 128\'%3E%3Crect fill=\'%23333\' width=\'128\' height=\'128\'/%3E%3Cpath fill=\'%23666\' d=\'M64 40c-13.254 0-24 10.746-24 24s10.746 24 24 24 24-10.746 24-24-10.746-24-24-24zm0 40c-8.822 0-16-7.178-16-16s7.178-16 16-16 16 7.178 16 16-7.178 16-16 16z\'/%3E%3Ccircle fill=\'%23666\' cx=\'64\' cy=\'64\' r=\'6\'/%3E%3C/svg%3E'}" alt="Cover" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'128\' height=\'128\' viewBox=\'0 0 128 128\'%3E%3Crect fill=\'%23333\' width=\'128\' height=\'128\'/%3E%3Cpath fill=\'%23666\' d=\'M64 40c-13.254 0-24 10.746-24 24s10.746 24 24 24 24-10.746 24-24-10.746-24-24-24zm0 40c-8.822 0-16-7.178-16-16s7.178-16 16-16 16 7.178 16 16-7.178 16-16 16z\'/%3E%3Ccircle fill=\'%23666\' cx=\'64\' cy=\'64\' r=\'6\'/%3E%3C/svg%3E'">
-        </td>
-        <td class="title-cell">${data.title}</td>
-        <td class="artist-cell">${data.artist}</td>
-        <td class="album-cell">${data.album}</td>
-        <td class="status-cell">
-            <div class="status ${data.status}">
-                <span class="status-icon ${data.status}">
-                    ${getStatusIcon(data.status)}
-                </span>
-                <span class="status-text">${getStatusText(data.status)}</span>
-            </div>
-        </td>
-        <td class="actions-cell">
-            <div class="actions">
-                <button class="dlbtn" onclick="dlOne('${link}')" title="Download" ${data.status === 'downloading' ? 'style="display:none"' : ''}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7,10 12,15 17,10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                </button>
-                <button class="cancelbtn" onclick="cancelOne('${link}')" title="Cancel Download" ${data.status !== 'downloading' ? 'style="display:none"' : ''}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="15" y1="9" x2="9" y2="15"></line>
-                        <line x1="9" y1="9" x2="15" y2="15"></line>
-                    </svg>
-                </button>
-                <button class="xbtn" onclick="rmRow('${link}')" title="Remove">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-        </td>
-    `;
-    
-    if (data.status === 'loading') {
+    row.dataset.status = status;
+
+    const coverCell = document.createElement('td');
+    coverCell.className = 'cover-cell';
+    const coverImg = document.createElement('img');
+    coverImg.alt = 'Cover';
+    coverImg.addEventListener('error', () => {
+        coverImg.src = DEFAULT_COVER_DATA_URI;
+    });
+    setCoverImage(coverImg, data.cover);
+    coverCell.appendChild(coverImg);
+
+    const titleCell = document.createElement('td');
+    titleCell.className = 'title-cell';
+    titleCell.textContent = data.title || '';
+
+    const artistCell = document.createElement('td');
+    artistCell.className = 'artist-cell';
+    artistCell.textContent = data.artist || '';
+
+    const albumCell = document.createElement('td');
+    albumCell.className = 'album-cell';
+    albumCell.textContent = data.album || '';
+
+    const statusCell = document.createElement('td');
+    statusCell.className = 'status-cell';
+    statusCell.appendChild(createStatusElement(status));
+
+    const actionsCell = document.createElement('td');
+    actionsCell.className = 'actions-cell';
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    const isDownloading = status === 'downloading';
+
+    actions.appendChild(createActionButton({
+        className: 'dlbtn',
+        title: 'Download',
+        icon: BUTTON_ICONS.download,
+        hidden: isDownloading,
+        onClick: () => dlOne(link)
+    }));
+    actions.appendChild(createActionButton({
+        className: 'cancelbtn',
+        title: 'Cancel Download',
+        icon: BUTTON_ICONS.cancel,
+        hidden: !isDownloading,
+        onClick: () => cancelOne(link)
+    }));
+    actions.appendChild(createActionButton({
+        className: 'xbtn',
+        title: 'Remove',
+        icon: BUTTON_ICONS.remove,
+        onClick: () => rmRow(link)
+    }));
+
+    actionsCell.appendChild(actions);
+
+    row.appendChild(coverCell);
+    row.appendChild(titleCell);
+    row.appendChild(artistCell);
+    row.appendChild(albumCell);
+    row.appendChild(statusCell);
+    row.appendChild(actionsCell);
+
+    if (status === 'loading') {
         row.classList.add('loading-row');
     }
-    
+
     return row;
 }
 
@@ -227,13 +312,7 @@ function updateRowData(link, data) {
     const statusText = row.querySelector('.status-text');
     
     if (data.cover !== undefined) {
-        if (data.cover) {
-            coverImg.src = data.cover;
-            coverImg.style.opacity = '1';
-        } else {
-            coverImg.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'128\' height=\'128\' viewBox=\'0 0 128 128\'%3E%3Crect fill=\'%23333\' width=\'128\' height=\'128\'/%3E%3Cpath fill=\'%23666\' d=\'M64 40c-13.254 0-24 10.746-24 24s10.746 24 24 24 24-10.746 24-24-10.746-24-24-24zm0 40c-8.822 0-16-7.178-16-16s7.178-16 16-16 16 7.178 16 16-7.178 16-16 16z\'/%3E%3Ccircle fill=\'%23666\' cx=\'64\' cy=\'64\' r=\'6\'/%3E%3C/svg%3E';
-            coverImg.style.opacity = '1';
-        }
+        setCoverImage(coverImg, data.cover);
     }
     
     if (data.title !== undefined) titleCell.textContent = data.title;
@@ -358,6 +437,7 @@ function dlOne(link) {
         console.error('Download start failed:', error);
         updateStatus(link, 'error');
         dlBtn.disabled = false;
+        updateDownloadAllButtonState();
         showToast(error.message || 'Download failed', 'error', 4000);
     });
 }
@@ -401,7 +481,7 @@ allBtn.addEventListener('click', () => {
     const pendingLinks = allLinks.filter(link => {
         const row = rows[link];
         const st = row?.dataset.status;
-        return st !== 'downloading' && st !== 'completed' && st !== 'loading' && st !== 'error';
+        return st !== 'downloading' && st !== 'completed' && st !== 'loading';
     });
     
     if (pendingLinks.length === 0) {
@@ -522,7 +602,7 @@ setInterval(() => {
                         progressBar = addProgressBar(statusCell, data.progress);
                     }
                     updateProgressBar(progressBar, data.progress);
-                    totalProgress += (data.progress <= 1 ? data.progress * 100 : data.progress);
+                    totalProgress += normalizeProgress(data.progress);
                     activeCount += 1;
                 }
             });
@@ -542,19 +622,25 @@ function showToast(message, type = 'info', duration = 4000) {
     const toastContainer = document.getElementById('toastContainer');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    
-    const icons = {
-        success: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22,4 12,14.01 9,11.01"></polyline></svg>`,
-        error: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`,
-        info: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`
-    };
-    
-    toast.innerHTML = `
-        <div class="toast-icon" style="color: ${type === 'success' ? 'var(--green)' : type === 'error' ? '#f44336' : '#2196F3'}">${icons[type]}</div>
-        <div class="toast-message">${message}</div>
-        <button class="toast-close" onclick="this.parentElement.remove()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-    `;
-    
+
+    const icon = document.createElement('div');
+    icon.className = 'toast-icon';
+    icon.style.color = type === 'success' ? 'var(--green)' : type === 'error' ? '#f44336' : '#2196F3';
+    icon.innerHTML = TOAST_ICONS[type] || TOAST_ICONS.info;
+
+    const messageNode = document.createElement('div');
+    messageNode.className = 'toast-message';
+    messageNode.textContent = String(message);
+
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'toast-close';
+    closeButton.innerHTML = CLOSE_ICON_SVG;
+    closeButton.addEventListener('click', () => toast.remove());
+
+    toast.appendChild(icon);
+    toast.appendChild(messageNode);
+    toast.appendChild(closeButton);
     toastContainer.appendChild(toast);
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, duration);

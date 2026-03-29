@@ -1,18 +1,21 @@
 """Download management and spotDL command building."""
 
-import subprocess
-import threading
-import re
 import os
-import signal
-import sys
-from typing import Dict, Any, Optional
 from pathlib import Path
+import re
+import signal
+import subprocess
+import sys
+import threading
+import time
+from typing import Dict, Any, Optional
 
 from config import DOWNLOAD_DIR, QUALITY_OPTIONS
 
 # Set to False in production to reduce console output
 DEBUG_OUTPUT = True
+MUSIC_EXTENSIONS = (".mp3", ".flac", ".m4a", ".opus", ".ogg", ".wav")
+PRESTART_CANCEL_WINDOW_SECONDS = 1.0
 
 
 class DownloadManager:
@@ -24,7 +27,8 @@ class DownloadManager:
         self.progress_callbacks: Dict[str, list] = {}  # link -> list of callback functions
         self.downloaded_files: Dict[str, str] = {}  # link -> actual filename that was downloaded
         self.download_processes: Dict[str, subprocess.Popen] = {}  # link -> process for canceling
-        self.cancelled_downloads: set = set()  # track intentionally cancelled downloads
+        self.cancelled_downloads: set[str] = set()  # track intentionally cancelled downloads
+        self.pending_cancel_deadlines: Dict[str, float] = {}
         self.errors: Dict[str, str] = {}  # link -> latest friendly error message
     
     def get_status(self, links: list[str]) -> Dict[str, Dict[str, Any]]:
@@ -59,71 +63,95 @@ class DownloadManager:
     
     def _check_file_exists(self, link: str) -> bool:
         """Check if downloaded file still exists on disk."""
-        # If we have the exact filename stored, check that
-        if link in self.downloaded_files:
-            file_path = DOWNLOAD_DIR / self.downloaded_files[link]
-            exists = file_path.exists()
-            if DEBUG_OUTPUT and not exists:
-                print(f"DEBUG - Stored file not found: {file_path}")
-            return exists
-        
-        # Otherwise, search for any music files that could be from this link
-        # This is a fallback for files downloaded before we started tracking filenames
+        file_path = self._resolve_downloaded_file_path(link)
+        if file_path is None:
+            return False
+
+        exists = file_path.exists()
+        if DEBUG_OUTPUT and not exists:
+            print(f"DEBUG - Stored file not found: {file_path}")
+        return exists
+
+    def _resolve_downloaded_file_path(self, link: str) -> Optional[Path]:
+        """Resolve a stored file reference to an absolute path."""
+        stored_path = self.downloaded_files.get(link)
+        if not stored_path:
+            return None
+
+        file_path = Path(stored_path)
+        if not file_path.is_absolute():
+            file_path = DOWNLOAD_DIR / file_path
+
+        return file_path
+
+    @staticmethod
+    def _snapshot_music_files() -> Dict[Path, float]:
+        """Capture the current set of audio files and their mtimes."""
+        snapshot: Dict[Path, float] = {}
         if not DOWNLOAD_DIR.exists():
-            return False
-            
-        # Look for common music file extensions
-        music_extensions = ['.mp3', '.flac', '.m4a', '.opus', '.ogg', '.wav']
-        
-        # Simple heuristic: if there are recent music files, assume some download happened
-        # This is not perfect but better than always showing "downloaded" for deleted files
+            return snapshot
+
+        for ext in MUSIC_EXTENSIONS:
+            for file_path in DOWNLOAD_DIR.rglob(f"*{ext}"):
+                try:
+                    snapshot[file_path] = file_path.stat().st_mtime
+                except OSError as exc:
+                    if DEBUG_OUTPUT:
+                        print(f"DEBUG - Could not stat music file {file_path}: {exc}")
+
+        return snapshot
+
+    @staticmethod
+    def _extract_output_path_from_line(line: str) -> Optional[Path]:
+        """Extract a downloaded audio path from spotDL/yt-dlp output when present."""
+        cleaned_line = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", line)
+        extension_pattern = "|".join(re.escape(ext) for ext in MUSIC_EXTENSIONS)
+        path_pattern = re.compile(
+            rf"({re.escape(str(DOWNLOAD_DIR))}.*?(?:{extension_pattern}))",
+            re.IGNORECASE,
+        )
+
+        match = path_pattern.search(cleaned_line)
+        if match is None:
+            return None
+
+        return Path(match.group(1).strip().strip("'\""))
+
+    def _remember_downloaded_file(self, link: str, file_path: Path) -> None:
+        """Store a downloaded file path in a reusable form."""
         try:
-            music_files = []
-            for ext in music_extensions:
-                music_files.extend(DOWNLOAD_DIR.glob(f"*{ext}"))
-            
-            # If no music files exist at all, definitely not downloaded
-            if not music_files:
-                if DEBUG_OUTPUT:
-                    print(f"DEBUG - No music files found in {DOWNLOAD_DIR}")
-                return False
-                
-            # More sophisticated check could involve parsing the link to get track info
-            # and searching for matching filenames, but that's complex
-            # For now, we'll be conservative and reset status when in doubt
-            return False  # Conservative: assume file doesn't exist if we can't verify
-            
-        except Exception as e:
-            if DEBUG_OUTPUT:
-                print(f"DEBUG - Error checking files: {e}")
-            return False
-    
-    def _store_downloaded_filename(self, link: str, settings: Dict[str, Any]) -> None:
-        """Try to determine and store the filename that was downloaded."""
+            stored_path = str(file_path.relative_to(DOWNLOAD_DIR))
+        except ValueError:
+            stored_path = str(file_path)
+
+        self.downloaded_files[link] = stored_path
+        if DEBUG_OUTPUT:
+            print(f"DEBUG - Stored filename for {link}: {stored_path}")
+
+    def _store_downloaded_filename(
+        self,
+        link: str,
+        detected_output_path: Optional[Path],
+        before_snapshot: Dict[Path, float],
+    ) -> None:
+        """Try to determine and store the file that was downloaded."""
         try:
-            # Get the most recently modified music file in the download directory
-            if not DOWNLOAD_DIR.exists():
+            if detected_output_path is not None and detected_output_path.exists():
+                self._remember_downloaded_file(link, detected_output_path)
                 return
-                
-            music_extensions = ['.mp3', '.flac', '.m4a', '.opus', '.ogg', '.wav']
-            music_files = []
-            
-            for ext in music_extensions:
-                music_files.extend(DOWNLOAD_DIR.glob(f"*{ext}"))
-            
-            if not music_files:
+
+            after_snapshot = self._snapshot_music_files()
+            changed_files = [
+                path
+                for path, mtime in after_snapshot.items()
+                if before_snapshot.get(path) is None or mtime > before_snapshot[path]
+            ]
+
+            if not changed_files:
                 return
-                
-            # Find the most recently modified file (likely the one just downloaded)
-            newest_file = max(music_files, key=lambda f: f.stat().st_mtime)
-            
-            # Store relative filename
-            relative_path = newest_file.relative_to(DOWNLOAD_DIR)
-            self.downloaded_files[link] = str(relative_path)
-            
-            if DEBUG_OUTPUT:
-                print(f"DEBUG - Stored filename for {link}: {relative_path}")
-                
+
+            newest_file = max(changed_files, key=lambda file_path: file_path.stat().st_mtime)
+            self._remember_downloaded_file(link, newest_file)
         except Exception as e:
             if DEBUG_OUTPUT:
                 print(f"DEBUG - Could not determine downloaded filename: {e}")
@@ -169,9 +197,11 @@ class DownloadManager:
         # request by flagging the link as cancelled so that any later attempt to start
         # the download will be skipped.
         if current_status not in {"downloading", "queued"}:
-            # There is nothing to terminate yet, but record the intent so that a race
-            # where /cancel arrives before /download is handled correctly.
-            self.cancelled_downloads.add(link)
+            # There is nothing to terminate yet, but briefly record the intent so a
+            # /cancel request that overtakes /download on the wire can still win.
+            self.pending_cancel_deadlines[link] = (
+                time.monotonic() + PRESTART_CANCEL_WINDOW_SECONDS
+            )
             # Ensure status is reset
             self.status[link] = "idle"
             self.progress[link] = 0.0
@@ -183,6 +213,7 @@ class DownloadManager:
         # From here on we know the status is downloading/queued and a process may exist
         # Mark as intentionally cancelled
         self.cancelled_downloads.add(link)
+        self.pending_cancel_deadlines.pop(link, None)
         
         # Get the process handle
         proc = self.download_processes.get(link)
@@ -234,13 +265,14 @@ class DownloadManager:
         """
         # Ensure download directory exists
         DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        download_input = str(settings.get("_download_input") or link)
         
         # Base command - SIMPLIFIED to reduce output complexity
         output_template = settings.get('output', '{artists} - {title}.{output-ext}')
         cmd = [
             "spotdl", 
             "download", 
-            link, 
+            download_input,
             "--max-retries",
             "0",
             "--output", 
@@ -248,13 +280,14 @@ class DownloadManager:
         ]
         
         # Add quality/bitrate setting
-        quality = settings.get('quality', 'best')
-        if quality in QUALITY_OPTIONS and QUALITY_OPTIONS[quality] is not None:
-            cmd.extend(["--bitrate", QUALITY_OPTIONS[quality]])
-        
+        quality = str(settings.get("quality", "best"))
+        bitrate = QUALITY_OPTIONS.get(quality)
+        if bitrate is not None:
+            cmd.extend(["--bitrate", bitrate])
+
         # Add format setting
-        format_type = settings.get('format', 'mp3')
-        if format_type and format_type != 'mp3':
+        format_type = str(settings.get("format", "mp3"))
+        if format_type != "mp3":
             cmd.extend(["--format", format_type])
         
         # Add advanced options
@@ -353,9 +386,7 @@ class DownloadManager:
     
     def _run_download(self, link: str, settings: Dict[str, Any]) -> None:
         """Execute download in background thread with REALISTIC progress tracking."""
-        import time
-        import threading
-        
+        temporary_input_file = settings.get("_temporary_input_file")
         self.status[link] = "downloading"
         self.progress[link] = 0.0
         # If the user cancelled very quickly (before the worker thread even started),
@@ -372,9 +403,11 @@ class DownloadManager:
             print(f"DEBUG - Starting download for: {link}")
         
         start_time = time.time()
+        before_snapshot = self._snapshot_music_files()
         real_progress_found = False
         last_progress = 0.0
         last_output_line: Optional[str] = None
+        detected_output_path: Optional[Path] = None
         failure_reason: Optional[str] = None
         download_phases = {
             'processing': False,
@@ -504,6 +537,9 @@ class DownloadManager:
                     
                     if line:
                         last_output_line = line
+                        extracted_path = self._extract_output_path_from_line(line)
+                        if extracted_path is not None:
+                            detected_output_path = extracted_path
                         if DEBUG_OUTPUT:
                             print(f"SpotDL output (line {lines_seen}): {line}")
 
@@ -581,7 +617,11 @@ class DownloadManager:
                     self._update_progress(link, 100.0)
                 
                 # Try to determine what file was downloaded
-                self._store_downloaded_filename(link, settings)
+                self._store_downloaded_filename(
+                    link,
+                    detected_output_path,
+                    before_snapshot,
+                )
                 print(f"Successfully downloaded: {link}")
             else:
                 # Check if this was an intentional cancellation
@@ -612,6 +652,16 @@ class DownloadManager:
             self.download_processes.pop(link, None)
             # Clean up cancellation tracking
             self.cancelled_downloads.discard(link)
+            self.pending_cancel_deadlines.pop(link, None)
+            if temporary_input_file:
+                try:
+                    Path(str(temporary_input_file)).unlink(missing_ok=True)
+                except OSError as exc:
+                    if DEBUG_OUTPUT:
+                        print(
+                            "DEBUG - Could not remove temporary spotdl save file "
+                            f"for {link}: {exc}"
+                        )
     
     def start_download(self, link: str, settings: Dict[str, Any]) -> bool:
         """
@@ -624,13 +674,21 @@ class DownloadManager:
         Returns:
             True if download started, False if already busy
         """
-        # If the user has already cancelled this link (race with /cancel), skip.
-        if link in self.cancelled_downloads:
-            if DEBUG_OUTPUT:
-                print(f"DEBUG - Download for {link} was skipped because it was cancelled before start_download.")
-            # The status is already reset to idle by cancel_download
-            self.cancelled_downloads.discard(link)
-            return False
+        pending_deadline = self.pending_cancel_deadlines.get(link)
+        if pending_deadline is not None:
+            if time.monotonic() <= pending_deadline:
+                if DEBUG_OUTPUT:
+                    print(
+                        f"DEBUG - Download for {link} was skipped because a "
+                        "pre-start cancel request arrived first."
+                    )
+                self.pending_cancel_deadlines.pop(link, None)
+                self.status[link] = "idle"
+                self.progress[link] = 0.0
+                self.errors.pop(link, None)
+                return False
+
+            self.pending_cancel_deadlines.pop(link, None)
 
         if self.is_busy(link):
             return False
