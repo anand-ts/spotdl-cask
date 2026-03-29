@@ -10,6 +10,8 @@ const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const zone = document.getElementById('zone');
 const headerTitle = document.getElementById('headerTitle');
+const compactToggleBtn = document.getElementById('compactToggleBtn');
+const COMPACT_MODE_STORAGE_KEY = 'compactMode';
 
 // Header idle animation state mgmt
 let lastActivityTs = Date.now();
@@ -752,6 +754,35 @@ function updateCancelAllButtonState() {
     cancelAllBtn.disabled = !isAnyDownloading;
 }
 
+function updateCompactToggleState(compact) {
+    if (!compactToggleBtn) return;
+    compactToggleBtn.classList.toggle('active', compact);
+    compactToggleBtn.setAttribute('aria-pressed', compact ? 'true' : 'false');
+    compactToggleBtn.title = compact
+        ? 'Switch to standard list view'
+        : 'Switch to compact list view';
+}
+
+function setCompactMode(compact, notify = false) {
+    document.body.classList.toggle('compact-mode', compact);
+    localStorage.setItem(COMPACT_MODE_STORAGE_KEY, compact ? 'compact' : 'standard');
+    updateCompactToggleState(compact);
+    if (notify) {
+        showToast(compact ? 'Compact view enabled' : 'Standard view restored', 'info', 2000);
+    }
+}
+
+function toggleCompactMode() {
+    markActivity();
+    const compact = !document.body.classList.contains('compact-mode');
+    setCompactMode(compact, true);
+}
+
+function initializeCompactMode() {
+    const savedMode = localStorage.getItem(COMPACT_MODE_STORAGE_KEY);
+    setCompactMode(savedMode === 'compact');
+}
+
 // Dark Mode
 function toggleDarkMode() {
     const body = document.body;
@@ -783,6 +814,7 @@ function initializeDarkMode() {
 
 // DOM ready
 document.addEventListener('DOMContentLoaded', () => {
+    initializeCompactMode();
     initializeDarkMode();
     setupDragAndDrop();
     updateDownloadAllButtonState();

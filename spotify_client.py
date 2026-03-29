@@ -5,6 +5,7 @@ import json
 import os
 import re
 import tempfile
+from pathlib import Path
 from typing import Any, Dict, Optional, cast
 from urllib.parse import urlsplit, urlunsplit
 
@@ -20,6 +21,41 @@ except ImportError as e:
     raise SystemExit(
         "spotdl>=4 must be installed. Run `uv sync` and then `uv run app.py`."
     ) from e
+
+
+_LOCAL_ENV_LOADED = False
+
+
+def _load_local_env_file() -> None:
+    """Load repo-local environment variables from `.env` once."""
+    global _LOCAL_ENV_LOADED
+    if _LOCAL_ENV_LOADED:
+        return
+
+    _LOCAL_ENV_LOADED = True
+    env_path = Path(__file__).resolve().with_name(".env")
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        if line.startswith("export "):
+            line = line[7:].strip()
+
+        if "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+
+        if key and key not in os.environ:
+            os.environ[key] = value
 
 
 class MetadataError(RuntimeError):
@@ -96,6 +132,7 @@ class SpotifyManager:
     @staticmethod
     def _get_env_override(*names: str) -> tuple[Optional[str], Optional[str]]:
         """Return the first non-empty environment override and its name."""
+        _load_local_env_file()
         for name in names:
             value = os.getenv(name, "").strip()
             if value:

@@ -24,7 +24,9 @@ DEFAULT_SETTINGS = {
 
 # SpotDL command options mapping
 QUALITY_OPTIONS = {
-    "best": None,  # Don't add --bitrate flag for best (highest available)
+    # spotdl defaults to 128k when --bitrate is omitted, so explicitly use
+    # "auto" to preserve the source bitrate for the best-quality option.
+    "best": "auto",
     "default": "192k",  # Good balance of quality and file size
     "efficient": "128k",  # Smaller file size, decent quality
 }

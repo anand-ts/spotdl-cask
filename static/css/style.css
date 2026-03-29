@@ -160,6 +160,18 @@ select:focus, input[type="text"]:focus {
     gap: 0.5rem;
 }
 
+.compact-toggle-btn.active {
+    background: var(--text-primary);
+    color: var(--bg-secondary);
+    border-color: var(--text-primary);
+}
+
+.compact-toggle-btn.active:hover:not([disabled]) {
+    background: var(--text-primary);
+    color: var(--bg-secondary);
+    opacity: 0.92;
+}
+
 .dark-mode-toggle {
     display: flex;
     align-items: center;
@@ -754,4 +766,60 @@ progress::-webkit-progress-value {
     border-top: 2px solid var(--text-primary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
+}
+
+body.compact-mode #zone {
+    padding: 1rem;
+}
+
+body.compact-mode th,
+body.compact-mode td {
+    padding: 0.45rem 0.65rem;
+    font-size: 0.82rem;
+    line-height: 1.2;
+}
+
+body.compact-mode .cover-header,
+body.compact-mode .cover-cell {
+    width: 74px;
+    min-width: 74px;
+    max-width: 74px;
+}
+
+body.compact-mode img {
+    width: 56px;
+    height: 56px;
+}
+
+body.compact-mode .status-cell .status {
+    gap: 0.35rem;
+}
+
+body.compact-mode .status-text {
+    font-size: 0.8rem;
+}
+
+body.compact-mode .actions-header,
+body.compact-mode .actions-cell {
+    width: 112px;
+    min-width: 112px;
+    max-width: 112px;
+}
+
+body.compact-mode .actions {
+    gap: 0.35rem;
+}
+
+body.compact-mode .actions button {
+    width: 30px;
+    height: 30px;
+    padding: 0.35rem;
+}
+
+body.compact-mode .progress-wrapper {
+    height: 16px;
+}
+
+body.compact-mode .progress-text {
+    font-size: 0.68rem;
 }
