@@ -10,12 +10,17 @@ import threading
 import time
 from typing import Dict, Any, Optional
 
-from config import DOWNLOAD_DIR, QUALITY_OPTIONS
+from config import DEFAULT_DOWNLOAD_DIR, QUALITY_OPTIONS, get_download_dir
 
 # Set to False in production to reduce console output
 DEBUG_OUTPUT = True
 MUSIC_EXTENSIONS = (".mp3", ".flac", ".m4a", ".opus", ".ogg", ".wav")
 PRESTART_CANCEL_WINDOW_SECONDS = 1.0
+ALLOWED_AUDIO_PROVIDERS = ("youtube", "youtube-music", "soundcloud", "bandcamp", "piped")
+DEFAULT_AUDIO_PROVIDERS = ("youtube", "piped")
+AUDIO_PROVIDER_ENV_VARS = ("SPOTDL_AUDIO_PROVIDERS", "SPOTDL_AUDIO_PROVIDER")
+SAFE_FALLBACK_OUTPUT_TEMPLATE = "{title}.{output-ext}"
+TITLE_ONLY_SEARCH_QUERY = "{title}"
 
 
 class DownloadManager:
@@ -80,19 +85,19 @@ class DownloadManager:
 
         file_path = Path(stored_path)
         if not file_path.is_absolute():
-            file_path = DOWNLOAD_DIR / file_path
+            file_path = (get_download_dir() or DEFAULT_DOWNLOAD_DIR) / file_path
 
         return file_path
 
     @staticmethod
-    def _snapshot_music_files() -> Dict[Path, float]:
+    def _snapshot_music_files(download_dir: Path) -> Dict[Path, float]:
         """Capture the current set of audio files and their mtimes."""
         snapshot: Dict[Path, float] = {}
-        if not DOWNLOAD_DIR.exists():
+        if not download_dir.exists():
             return snapshot
 
         for ext in MUSIC_EXTENSIONS:
-            for file_path in DOWNLOAD_DIR.rglob(f"*{ext}"):
+            for file_path in download_dir.rglob(f"*{ext}"):
                 try:
                     snapshot[file_path] = file_path.stat().st_mtime
                 except OSError as exc:
@@ -102,12 +107,12 @@ class DownloadManager:
         return snapshot
 
     @staticmethod
-    def _extract_output_path_from_line(line: str) -> Optional[Path]:
+    def _extract_output_path_from_line(line: str, download_dir: Path) -> Optional[Path]:
         """Extract a downloaded audio path from spotDL/yt-dlp output when present."""
         cleaned_line = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", line)
         extension_pattern = "|".join(re.escape(ext) for ext in MUSIC_EXTENSIONS)
         path_pattern = re.compile(
-            rf"({re.escape(str(DOWNLOAD_DIR))}.*?(?:{extension_pattern}))",
+            rf"({re.escape(str(download_dir))}.*?(?:{extension_pattern}))",
             re.IGNORECASE,
         )
 
@@ -119,11 +124,7 @@ class DownloadManager:
 
     def _remember_downloaded_file(self, link: str, file_path: Path) -> None:
         """Store a downloaded file path in a reusable form."""
-        try:
-            stored_path = str(file_path.relative_to(DOWNLOAD_DIR))
-        except ValueError:
-            stored_path = str(file_path)
-
+        stored_path = str(file_path.resolve())
         self.downloaded_files[link] = stored_path
         if DEBUG_OUTPUT:
             print(f"DEBUG - Stored filename for {link}: {stored_path}")
@@ -133,14 +134,15 @@ class DownloadManager:
         link: str,
         detected_output_path: Optional[Path],
         before_snapshot: Dict[Path, float],
-    ) -> None:
+        download_dir: Path,
+    ) -> Optional[Path]:
         """Try to determine and store the file that was downloaded."""
         try:
             if detected_output_path is not None and detected_output_path.exists():
                 self._remember_downloaded_file(link, detected_output_path)
-                return
+                return detected_output_path
 
-            after_snapshot = self._snapshot_music_files()
+            after_snapshot = self._snapshot_music_files(download_dir)
             changed_files = [
                 path
                 for path, mtime in after_snapshot.items()
@@ -148,13 +150,35 @@ class DownloadManager:
             ]
 
             if not changed_files:
-                return
+                if DEBUG_OUTPUT:
+                    print(
+                        "DEBUG - No new audio files were detected in "
+                        f"{download_dir} for {link}"
+                    )
+                return None
 
             newest_file = max(changed_files, key=lambda file_path: file_path.stat().st_mtime)
             self._remember_downloaded_file(link, newest_file)
+            return newest_file
         except Exception as e:
             if DEBUG_OUTPUT:
                 print(f"DEBUG - Could not determine downloaded filename: {e}")
+            return None
+
+    @staticmethod
+    def _missing_output_message(download_dir: Path, last_output_line: Optional[str]) -> str:
+        """Explain that spotDL exited without creating a visible output file."""
+        base_message = (
+            f"spotDL exited without creating an audio file in {download_dir}."
+        )
+        if not last_output_line:
+            return base_message
+
+        formatted_output = DownloadManager._format_error_message(last_output_line)
+        if formatted_output == "Download failed.":
+            return base_message
+
+        return f"{formatted_output} {base_message}"
      
     def add_progress_callback(self, link: str, callback):
         """Add a callback function to be called when progress updates."""
@@ -251,6 +275,99 @@ class DownloadManager:
             print(f"DEBUG - Cancelled download for: {link}")
         
         return True
+
+    @staticmethod
+    def _spotdl_base_command() -> list[str]:
+        """Build a spotDL command that works in dev and bundled app builds."""
+        if getattr(sys, "frozen", False):
+            return [sys.executable, "--run-spotdl"]
+
+        return [sys.executable, "-m", "spotdl"]
+
+    @staticmethod
+    def _normalize_audio_providers(raw_value: Any) -> list[str]:
+        """Normalize a provider list from UI settings or environment variables."""
+        if raw_value is None:
+            return []
+
+        if isinstance(raw_value, str):
+            candidates = re.split(r"[\s,]+", raw_value)
+        elif isinstance(raw_value, (list, tuple, set)):
+            candidates = [str(item).strip() for item in raw_value]
+        else:
+            return []
+
+        providers: list[str] = []
+        for candidate in candidates:
+            provider = str(candidate).strip()
+            if provider not in ALLOWED_AUDIO_PROVIDERS or provider in providers:
+                continue
+            providers.append(provider)
+
+        return providers
+
+    @classmethod
+    def _resolve_audio_providers(cls, settings: Dict[str, Any]) -> list[str]:
+        """Choose the provider order, preferring explicit overrides when present."""
+        configured_providers = cls._normalize_audio_providers(
+            settings.get("audioProviders") or settings.get("audio_providers")
+        )
+        if configured_providers:
+            return configured_providers
+
+        for env_var in AUDIO_PROVIDER_ENV_VARS:
+            configured_providers = cls._normalize_audio_providers(os.getenv(env_var))
+            if configured_providers:
+                return configured_providers
+
+        return list(DEFAULT_AUDIO_PROVIDERS)
+
+    @staticmethod
+    def _get_download_directory(settings: Optional[Dict[str, Any]] = None) -> Path:
+        """Resolve the active download directory for a request or the saved default."""
+        if settings is not None:
+            raw_directory = str(settings.get("_download_directory") or "").strip()
+            if raw_directory:
+                return Path(raw_directory).expanduser().resolve()
+
+        return get_download_dir() or DEFAULT_DOWNLOAD_DIR
+
+    @staticmethod
+    def _resolve_output_template(settings: Dict[str, Any]) -> str:
+        """Pick a filename template that won't crash on partial fallback metadata."""
+        output_template = str(settings.get("output", "{artists} - {title}.{output-ext}"))
+        if not settings.get("_temporary_input_file") or not settings.get("_fallback_missing_artist"):
+            return output_template
+
+        if "{artist}" not in output_template and "{artists}" not in output_template:
+            return output_template
+
+        if DEBUG_OUTPUT:
+            print(
+                "DEBUG - Fallback metadata is missing artist info; "
+                f"using safe output template: {SAFE_FALLBACK_OUTPUT_TEMPLATE}"
+            )
+
+        return SAFE_FALLBACK_OUTPUT_TEMPLATE
+
+    @staticmethod
+    def _resolve_search_query(settings: Dict[str, Any]) -> Optional[str]:
+        """Pick a provider search query override when fallback metadata is incomplete."""
+        configured_query = str(
+            settings.get("searchQuery") or settings.get("search_query") or ""
+        ).strip()
+        if configured_query:
+            return configured_query
+
+        if settings.get("_temporary_input_file") and settings.get("_fallback_missing_artist"):
+            if DEBUG_OUTPUT:
+                print(
+                    "DEBUG - Fallback metadata is missing artist info; "
+                    f"using title-only provider search: {TITLE_ONLY_SEARCH_QUERY}"
+                )
+            return TITLE_ONLY_SEARCH_QUERY
+
+        return None
     
     def build_command(self, link: str, settings: Dict[str, Any]) -> list[str]:
         """
@@ -264,20 +381,29 @@ class DownloadManager:
             List of command arguments for subprocess
         """
         # Ensure download directory exists
-        DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        download_dir = self._get_download_directory(settings)
+        download_dir.mkdir(parents=True, exist_ok=True)
         download_input = str(settings.get("_download_input") or link)
         
         # Base command - SIMPLIFIED to reduce output complexity
-        output_template = settings.get('output', '{artists} - {title}.{output-ext}')
+        output_template = self._resolve_output_template(settings)
         cmd = [
-            "spotdl", 
+            *self._spotdl_base_command(),
             "download", 
             download_input,
             "--max-retries",
             "0",
             "--output", 
-            f"{DOWNLOAD_DIR}/{output_template}"
+            f"{download_dir}/{output_template}"
         ]
+
+        search_query = self._resolve_search_query(settings)
+        if search_query:
+            cmd.extend(["--search-query", search_query])
+
+        audio_providers = self._resolve_audio_providers(settings)
+        if audio_providers:
+            cmd.extend(["--audio", *audio_providers])
         
         # Add quality/bitrate setting
         quality = str(settings.get("quality", "best"))
@@ -318,6 +444,9 @@ class DownloadManager:
         if not line:
             return "Download failed."
 
+        stripped_line = line.strip().strip("│").strip()
+        lower_line = stripped_line.lower()
+
         if DownloadManager._is_rate_limited_output(line):
             retry_match = re.search(r"after:\s*(\d+)\s*s", line, re.IGNORECASE)
             if retry_match:
@@ -331,7 +460,37 @@ class DownloadManager:
                 "Wait for the quota reset or update your spotDL Spotify credentials."
             )
 
-        return line
+        if "you are blocked by youtube music" in lower_line:
+            return (
+                "This network is blocking the default YouTube Music source. "
+                "The app now falls back to Piped and YouTube automatically. "
+                "If downloads still fail, try a VPN or set SPOTDL_AUDIO_PROVIDERS "
+                "to a custom provider order."
+            )
+
+        for error_prefix in (
+            "downloadererror:",
+            "audioprovidererror:",
+            "spotifyerror:",
+            "ffmpegerror:",
+            "metadataerror:",
+        ):
+            if lower_line.startswith(error_prefix):
+                message = stripped_line.split(":", 1)[1].strip()
+                return message or "Download failed."
+
+        if lower_line.startswith("indexerror: list index out of range"):
+            return (
+                "spotDL hit incomplete fallback metadata while formatting the filename. "
+                "Retry the download after the app reloads, or wait for Spotify rate limits to clear."
+            )
+
+        if lower_line.startswith("jsondecodeerror:"):
+            return (
+                "The selected audio provider returned invalid data while resolving the stream."
+            )
+
+        return stripped_line
 
     @staticmethod
     def _terminate_process(proc: subprocess.Popen) -> None:
@@ -403,7 +562,8 @@ class DownloadManager:
             print(f"DEBUG - Starting download for: {link}")
         
         start_time = time.time()
-        before_snapshot = self._snapshot_music_files()
+        download_dir = self._get_download_directory(settings)
+        before_snapshot = self._snapshot_music_files(download_dir)
         real_progress_found = False
         last_progress = 0.0
         last_output_line: Optional[str] = None
@@ -531,13 +691,13 @@ class DownloadManager:
                     line = proc.stdout.readline()
                     if not line:
                         break
-                    
+
                     line = line.strip()
                     lines_seen += 1
-                    
+
                     if line:
                         last_output_line = line
-                        extracted_path = self._extract_output_path_from_line(line)
+                        extracted_path = self._extract_output_path_from_line(line, download_dir)
                         if extracted_path is not None:
                             detected_output_path = extracted_path
                         if DEBUG_OUTPUT:
@@ -610,19 +770,26 @@ class DownloadManager:
                 print(f"DEBUG - Phases: {download_phases}")
             
             if proc.returncode == 0:
-                self.status[link] = "done"
-                self.errors.pop(link, None)
-                # Smooth transition to 100%
-                if last_progress < 100:
-                    self._update_progress(link, 100.0)
-                
-                # Try to determine what file was downloaded
-                self._store_downloaded_filename(
+                stored_file = self._store_downloaded_filename(
                     link,
                     detected_output_path,
                     before_snapshot,
+                    download_dir,
                 )
-                print(f"Successfully downloaded: {link}")
+                if stored_file is None or not stored_file.exists():
+                    self.status[link] = "error"
+                    failure_reason = self._missing_output_message(download_dir, last_output_line)
+                    self.errors[link] = failure_reason
+                    self.progress[link] = 0.0
+                    print(f"Download failed for {link} even though spotDL exited successfully.")
+                    print(f"Download failure reason: {failure_reason}")
+                else:
+                    self.status[link] = "done"
+                    self.errors.pop(link, None)
+                    # Smooth transition to 100%
+                    if last_progress < 100:
+                        self._update_progress(link, 100.0)
+                    print(f"Successfully downloaded: {link}")
             else:
                 # Check if this was an intentional cancellation
                 if link in self.cancelled_downloads:
@@ -633,6 +800,11 @@ class DownloadManager:
                     # This was a real error, not a cancellation
                     self.status[link] = "error"
                     failure_reason = failure_reason or self._format_error_message(last_output_line)
+                    if last_output_line is None:
+                        failure_reason = (
+                            f"Download subprocess exited with code {proc.returncode} "
+                            "without any output."
+                        )
                     self.errors[link] = failure_reason
                     print(f"Download failed for {link} with return code: {proc.returncode}")
                     print(f"Download failure reason: {failure_reason}")

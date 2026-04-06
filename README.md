@@ -63,6 +63,33 @@ spotDL Web Downloader transforms the command-line [spotdl](https://github.com/sp
 4. **Open your browser for development mode**
    - Navigate to `http://127.0.0.1:5001`
 
+## Build a macOS App
+
+This repo already runs as a desktop app through `pywebview`. To export it as a native macOS `.app` bundle:
+
+1. **Install the dev build tools**
+   ```bash
+   uv sync --group dev
+   ```
+
+2. **Build the application bundle**
+   ```bash
+   ./build-macos-app.sh
+   ```
+
+3. **Open the generated app**
+   ```bash
+   open "dist/spotDL Web Downloader.app"
+   ```
+
+The bundle is created at `dist/spotDL Web Downloader.app`.
+
+## Packaging Notes
+
+- The app now resolves Flask `templates/` and `static/` correctly in both source and bundled builds.
+- Download jobs use the same executable in bundled mode, so the exported app does not rely on a separate `spotdl` command being installed on your `PATH`.
+- If macOS blocks the first launch because the app is unsigned, right-click the app in Finder and choose **Open** once to approve it.
+
 ## Python Version
 
 `spotdl` currently requires Python `<3.14`, so this repo pins `3.11.13` via `.python-version`. `uv sync` will use that version automatically.

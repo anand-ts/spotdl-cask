@@ -6,7 +6,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional, TypedDict, cast
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
@@ -24,6 +24,14 @@ except ImportError as e:
 
 
 _LOCAL_ENV_LOADED = False
+
+
+class DownloadInputPayload(TypedDict):
+    """Structured handoff from metadata resolution into the downloader."""
+
+    input: str
+    temporary_input_file: Optional[str]
+    fallback_missing_artist: bool
 
 
 def _load_local_env_file() -> None:
@@ -77,6 +85,18 @@ class SpotifyManager:
         self._credential_source = "spotDL config"
         self._config_path = str(get_config_file())
         self._fallback_tracks: Dict[str, Dict[str, Any]] = {}
+
+    @staticmethod
+    def _fallback_missing_artist(song: Optional[Dict[str, Any]]) -> bool:
+        """Return True when fallback metadata lacks usable artist values."""
+        if not song:
+            return True
+
+        artists = [str(artist).strip() for artist in song.get("artists") or [] if str(artist).strip()]
+        if artists:
+            return False
+
+        return not str(song.get("artist") or "").strip()
 
     @staticmethod
     def _build_no_retry_session() -> requests.Session:
@@ -260,6 +280,57 @@ class SpotifyManager:
             "cover": song.get("cover_url") or "",
         }
 
+    @staticmethod
+    def _download_input_payload(
+        download_input: str,
+        *,
+        temporary_input_file: Optional[str] = None,
+        fallback_missing_artist: bool = False,
+    ) -> DownloadInputPayload:
+        """Build a consistent download-input payload for the app layer."""
+        return {
+            "input": download_input,
+            "temporary_input_file": temporary_input_file,
+            "fallback_missing_artist": fallback_missing_artist,
+        }
+
+    @classmethod
+    def _can_use_fallback_save_file(cls, song: Optional[Dict[str, Any]]) -> bool:
+        """Return True when fallback metadata is complete enough for `.spotdl` input."""
+        if song is None:
+            return False
+
+        title = str(song.get("name") or "").strip()
+        return bool(title and title != "(unknown)")
+
+    @classmethod
+    def _prepare_fallback_save_file_song(cls, song: Dict[str, Any]) -> Dict[str, Any]:
+        """Sanitize fallback metadata so spotDL can load it without re-querying Spotify."""
+        prepared_song = dict(song)
+        artists = [
+            str(artist).strip()
+            for artist in prepared_song.get("artists") or []
+            if str(artist).strip()
+        ]
+        artist = str(prepared_song.get("artist") or "").strip()
+
+        if artists:
+            prepared_song["artists"] = artists
+            prepared_song["artist"] = artist or artists[0]
+            return prepared_song
+
+        if artist:
+            prepared_song["artists"] = [artist]
+            prepared_song["artist"] = artist
+            return prepared_song
+
+        # spotDL's formatter eagerly reads song.artists[0], even when the
+        # selected output template doesn't use artist placeholders. Keep a
+        # blank placeholder so title-only fallback downloads can still run.
+        prepared_song["artists"] = [""]
+        prepared_song["artist"] = ""
+        return prepared_song
+
     def _build_fallback_song(self, link: str) -> Optional[Dict[str, Any]]:
         """Build a minimal song dict from public Spotify page metadata."""
         normalized_link = self._normalize_spotify_track_url(link)
@@ -359,18 +430,31 @@ class SpotifyManager:
         self._fallback_tracks[normalized_link] = fallback_song
         return fallback_song
 
-    def get_download_input(self, link: str) -> Dict[str, Optional[str]]:
-        """Resolve the best input for spotdl, including fallback save files."""
+    def get_download_input(self, link: str) -> DownloadInputPayload:
+        """Resolve the best input for spotdl, preferring safe fallback save files."""
         if "open.spotify.com/track" not in link:
-            return {"input": link, "temporary_input_file": None}
+            return self._download_input_payload(link)
 
         normalized_link = self._normalize_spotify_track_url(link)
         fallback_song = self._fallback_tracks.get(normalized_link) or self._build_fallback_song(
             normalized_link
         )
+        fallback_missing_artist = self._fallback_missing_artist(fallback_song)
 
-        if fallback_song is None:
-            return {"input": normalized_link, "temporary_input_file": None}
+        if not self._can_use_fallback_save_file(fallback_song):
+            if fallback_song is not None:
+                print(
+                    "DEBUG - Fallback Spotify metadata is incomplete; "
+                    "using the original track URL instead of a temporary .spotdl file."
+                )
+            return self._download_input_payload(normalized_link)
+
+        save_file_song = self._prepare_fallback_save_file_song(fallback_song)
+        if fallback_missing_artist:
+            print(
+                "DEBUG - Fallback Spotify metadata is missing artist info; "
+                "using a sanitized temporary .spotdl file with title-only search."
+            )
 
         temp_file = tempfile.NamedTemporaryFile(
             mode="w",
@@ -381,9 +465,13 @@ class SpotifyManager:
             delete=False,
         )
         with temp_file:
-            json.dump([fallback_song], temp_file, ensure_ascii=True, indent=2)
+            json.dump([save_file_song], temp_file, ensure_ascii=True, indent=2)
 
-        return {"input": temp_file.name, "temporary_input_file": temp_file.name}
+        return self._download_input_payload(
+            temp_file.name,
+            temporary_input_file=temp_file.name,
+            fallback_missing_artist=fallback_missing_artist,
+        )
 
     def _load_spotify_settings(self) -> Dict[str, Any]:
         """Load Spotify settings from the spotDL config with env overrides."""

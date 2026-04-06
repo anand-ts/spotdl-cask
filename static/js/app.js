@@ -2,6 +2,7 @@
 
 // DOM Elements
 const tblBody = document.querySelector('#tbl-body');
+const tbl = document.getElementById('tbl');
 const ph = document.getElementById('ph');
 const allBtn = document.getElementById('allBtn');
 const cancelAllBtn = document.getElementById('cancelAllBtn');
@@ -11,6 +12,10 @@ const overlay = document.getElementById('overlay');
 const zone = document.getElementById('zone');
 const headerTitle = document.getElementById('headerTitle');
 const compactToggleBtn = document.getElementById('compactToggleBtn');
+const downloadDirPrompt = document.getElementById('downloadDirPrompt');
+const downloadDirPromptPath = document.getElementById('downloadDirPromptPath');
+const downloadDirSel = document.getElementById('downloadDirSel');
+const downloadDirStatus = document.getElementById('downloadDirStatus');
 const COMPACT_MODE_STORAGE_KEY = 'compactMode';
 
 // Header idle animation state mgmt
@@ -52,6 +57,7 @@ setInterval(() => {
 // Application State
 let rows = {};
 let settings = {
+    downloadDirectory: '',
     quality: 'best',
     format: 'mp3',
     output: '{artists} - {title}.{output-ext}',
@@ -59,6 +65,7 @@ let settings = {
     skipExplicit: false,
     generateLrc: false
 };
+let settingsLoaded = false;
 
 // Cache of last applied statuses to minimize DOM thrash
 const lastStatusCache = {};
@@ -86,6 +93,120 @@ const TOAST_ICONS = {
     info: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`
 };
 const CLOSE_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+
+function normalizeDownloadDirectory(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function hasDownloadDirectory() {
+    return normalizeDownloadDirectory(settings.downloadDirectory).length > 0;
+}
+
+function updateDownloadAvailability() {
+    const configured = hasDownloadDirectory();
+
+    Object.values(rows).forEach(row => {
+        if (!row) return;
+        const dlBtn = row.querySelector('.dlbtn');
+        if (!dlBtn) return;
+
+        const status = row.dataset.status;
+        if (status === 'downloading') return;
+
+        dlBtn.disabled = !configured || status === 'completed';
+    });
+
+    if (!allBtn.innerHTML.includes('Downloading')) {
+        allBtn.disabled = Object.keys(rows).length === 0 || !configured;
+    }
+}
+
+function syncDownloadDirectoryUI() {
+    const downloadDirectory = normalizeDownloadDirectory(settings.downloadDirectory);
+
+    if (downloadDirSel) {
+        downloadDirSel.value = downloadDirectory;
+    }
+
+    if (downloadDirPromptPath) {
+        downloadDirPromptPath.textContent = downloadDirectory || 'No folder selected yet';
+    }
+
+    if (downloadDirStatus) {
+        downloadDirStatus.textContent = downloadDirectory ? 'Configured' : 'Required';
+        downloadDirStatus.classList.toggle('configured', Boolean(downloadDirectory));
+    }
+
+    if (downloadDirPrompt) {
+        const shouldShow = settingsLoaded && !downloadDirectory;
+        downloadDirPrompt.classList.toggle('show', shouldShow);
+        downloadDirPrompt.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+    }
+
+    updateDownloadAvailability();
+}
+
+function ensureDownloadDirectoryConfigured() {
+    if (hasDownloadDirectory()) {
+        return true;
+    }
+
+    syncDownloadDirectoryUI();
+    showToast('Choose a download folder before starting downloads.', 'info', 3500);
+    return false;
+}
+
+async function loadServerSettings() {
+    try {
+        const response = await fetch('/settings');
+        if (!response.ok) {
+            throw new Error('Failed to load saved settings.');
+        }
+
+        const data = await response.json();
+        settings.downloadDirectory = normalizeDownloadDirectory(data.downloadDirectory);
+    } catch (error) {
+        console.error('Settings load failed:', error);
+        showToast(error.message || 'Failed to load saved settings.', 'error', 4000);
+    } finally {
+        settingsLoaded = true;
+        syncDownloadDirectoryUI();
+    }
+}
+
+async function pickDownloadDirectory({ source = 'settings' } = {}) {
+    markActivity();
+
+    try {
+        const response = await fetch('/settings/download-directory/pick', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Could not choose a download folder.');
+        }
+
+        if (data.cancelled) {
+            if (!hasDownloadDirectory()) {
+                syncDownloadDirectoryUI();
+                showToast('Choose a download folder to continue.', 'info', 3500);
+            }
+            return false;
+        }
+
+        settings.downloadDirectory = normalizeDownloadDirectory(data.downloadDirectory);
+        syncDownloadDirectoryUI();
+        showToast(`Download folder set to ${settings.downloadDirectory}`, 'success', 3500);
+        return true;
+    } catch (error) {
+        console.error('Folder picker failed:', error);
+        showToast(error.message || 'Could not choose a download folder.', 'error', 4000);
+        return false;
+    }
+}
 
 // Event Listeners
 document.addEventListener('paste', e => {
@@ -128,9 +249,10 @@ function addRow(link) {
     
     // Show table and enable controls
     ph.style.display = 'none';
-    document.getElementById('tbl').style.display = 'table';
+    tbl.style.display = 'table';
     allBtn.disabled = false;
     removeAllBtn.disabled = false;
+    updateDownloadAvailability();
     
     // Add entrance animation
     requestAnimationFrame(() => {
@@ -235,6 +357,7 @@ function createRowElement(link, data) {
     const coverCell = document.createElement('td');
     coverCell.className = 'cover-cell';
     const coverImg = document.createElement('img');
+    coverImg.className = 'cover-image';
     coverImg.alt = 'Cover';
     coverImg.addEventListener('error', () => {
         coverImg.src = DEFAULT_COVER_DATA_URI;
@@ -306,7 +429,7 @@ function updateRowData(link, data) {
     const row = rows[link];
     if (!row) return;
     
-    const coverImg = row.querySelector('.cover-cell img');
+    const coverImg = row.querySelector('.cover-image');
     const titleCell = row.querySelector('.title-cell');
     const artistCell = row.querySelector('.artist-cell');
     const albumCell = row.querySelector('.album-cell');
@@ -341,7 +464,7 @@ function updateRowData(link, data) {
             if (cancelBtn) { cancelBtn.style.display = 'flex'; cancelBtn.disabled = false; }
             if (removeBtn) { removeBtn.disabled = true; }
         } else {
-            if (dlBtn) { dlBtn.style.display = 'flex'; dlBtn.disabled = (data.status === 'completed'); }
+            if (dlBtn) { dlBtn.style.display = 'flex'; dlBtn.disabled = !hasDownloadDirectory() || data.status === 'completed'; }
             if (cancelBtn) { cancelBtn.style.display = 'none'; cancelBtn.disabled = true; }
             if (removeBtn) { removeBtn.disabled = false; }
         }
@@ -395,12 +518,13 @@ function rmRow(l) {
         
         if (!Object.keys(rows).length) {
             ph.style.display = 'block';
-            document.getElementById('tbl').style.display = 'none';
+            tbl.style.display = 'none';
             allBtn.disabled = true;
             cancelAllBtn.disabled = true;
             removeAllBtn.disabled = true;
         }
-        
+
+        updateDownloadAvailability();
         showToast(`Removed: ${trackTitle}`, 'info', 2000);
     }, 250);
 }
@@ -408,6 +532,7 @@ function rmRow(l) {
 // Download Management
 function dlOne(link) {
     if (!rows[link]) return;
+    if (!ensureDownloadDirectoryConfigured()) return;
     markActivity();
     
     const dlBtn = rows[link].querySelector('.dlbtn');
@@ -429,16 +554,26 @@ function dlOne(link) {
     .then(async response => {
         if (response.ok) return;
 
-        if (response.status === 409) {
-            throw new Error('Download could not be started for this track.');
+        let message = 'Download failed to start.';
+        try {
+            const payload = await response.json();
+            if (payload && payload.error) {
+                message = payload.error;
+            }
+        } catch (_error) {
+            // Ignore JSON parsing failures and fall back to generic text.
         }
 
-        throw new Error('Download failed to start.');
+        if (response.status === 409) {
+            throw new Error(message || 'Download could not be started for this track.');
+        }
+
+        throw new Error(message);
     })
     .catch(error => {
         console.error('Download start failed:', error);
         updateStatus(link, 'error');
-        dlBtn.disabled = false;
+        dlBtn.disabled = !hasDownloadDirectory();
         updateDownloadAllButtonState();
         showToast(error.message || 'Download failed', 'error', 4000);
     });
@@ -476,6 +611,7 @@ function cancelOne(link) {
 }
 
 allBtn.addEventListener('click', () => {
+    if (!ensureDownloadDirectoryConfigured()) return;
     markActivity();
     const allLinks = Object.keys(rows);
     if (allLinks.length === 0) return;
@@ -534,23 +670,41 @@ removeAllBtn.addEventListener('click', () => {
 
 // Settings Management
 function toggleSettings() {
+    markActivity();
     sidebar.classList.add('open');
     overlay.classList.add('show');
+}
+
+function openSettingsFromPrompt() {
+    markActivity();
+    if (downloadDirPrompt) {
+        downloadDirPrompt.classList.remove('show');
+        downloadDirPrompt.setAttribute('aria-hidden', 'true');
+    }
+    toggleSettings();
 }
 
 function closeSettings() {
     sidebar.classList.remove('open');
     overlay.classList.remove('show');
+    syncDownloadDirectoryUI();
 }
 
 function applySettings() {
     const qualityRadio = document.querySelector('input[name="quality"]:checked');
+    settings.downloadDirectory = normalizeDownloadDirectory(downloadDirSel ? downloadDirSel.value : settings.downloadDirectory);
     settings.quality = qualityRadio ? qualityRadio.value : 'best';
     settings.format = document.getElementById('formatSel').value;
     settings.output = document.getElementById('outputSel').value;
     settings.playlistNumbering = document.getElementById('playlistNumbering').checked;
     settings.skipExplicit = document.getElementById('skipExplicit').checked;
     settings.generateLrc = document.getElementById('generateLrc').checked;
+
+    if (!hasDownloadDirectory()) {
+        syncDownloadDirectoryUI();
+        showToast('Choose a download folder first.', 'error', 3500);
+        return;
+    }
     
     closeSettings();
     showToast('Settings saved successfully!', 'success', 3000);
@@ -740,7 +894,7 @@ function updateDownloadAllButtonState() {
 
 function resetDownloadAllButton() {
     allBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7,10 12,15 17,10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download All`;
-    allBtn.disabled = (Object.keys(rows).length === 0);
+    allBtn.disabled = (Object.keys(rows).length === 0) || !hasDownloadDirectory();
     removeAllBtn.disabled = (Object.keys(rows).length === 0);
 }
 
@@ -813,10 +967,11 @@ function initializeDarkMode() {
 }
 
 // DOM ready
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     initializeCompactMode();
     initializeDarkMode();
     setupDragAndDrop();
+    await loadServerSettings();
     updateDownloadAllButtonState();
     updateCancelAllButtonState();
     // Start in idle visual state
