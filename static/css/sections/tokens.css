@@ -1,0 +1,48 @@
+:root {
+    font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+    --green: #1db954;
+    --gray: #eee;
+    --dark-gray: #333;
+    --light-gray: #f8f9fa;
+    --border: #ddd;
+
+    /* Light mode colors */
+    --bg-primary: #ffffff;
+    --bg-primary-rgb: 255, 255, 255;
+    --bg-secondary: #fafafa;
+    --bg-tertiary: #f0f0f0;
+    --text-primary: #000000;
+    --text-secondary: #555;
+    --text-tertiary: #888;
+    --border-light: #e0e0e0;
+    --border-medium: #b0b0b0;
+    --row-hover-bg: #f3f7f4;
+    --selection-bg: rgba(29, 185, 84, 0.16);
+    --selection-bg-hover: rgba(29, 185, 84, 0.22);
+    --selection-edge: rgba(29, 185, 84, 0.78);
+    --shadow-light: rgba(0, 0, 0, 0.05);
+    --shadow-medium: rgba(0, 0, 0, 0.1);
+    --shadow-dark: rgba(0, 0, 0, 0.15);
+}
+
+/* Dark mode colors */
+[data-theme="dark"] {
+    --bg-primary: #121212;
+    --bg-primary-rgb: 18, 18, 18;
+    --bg-secondary: #1e1e1e;
+    --bg-tertiary: #2a2a2a;
+    --text-primary: #ffffff;
+    --text-secondary: #b3b3b3;
+    --text-tertiary: #808080;
+    --border-light: #333;
+    --border-medium: #555;
+    --row-hover-bg: #1c251f;
+    --selection-bg: rgba(29, 185, 84, 0.22);
+    --selection-bg-hover: rgba(29, 185, 84, 0.28);
+    --selection-edge: rgba(84, 220, 129, 0.9);
+    --shadow-light: rgba(0, 0, 0, 0.2);
+    --shadow-medium: rgba(0, 0, 0, 0.3);
+    --shadow-dark: rgba(0, 0, 0, 0.4);
+    --gray: #444;
+    --light-gray: #2a2a2a;
+}

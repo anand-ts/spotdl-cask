@@ -9,8 +9,11 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+build-test/
+build-test-spec/
 develop-eggs/
 dist/
+dist-test/
 downloads/
 eggs/
 .eggs/
@@ -122,6 +125,10 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.uv-cache/
+.pyinstaller/
+.ruff_cache/
+node_modules/
 env/
 venv/
 ENV/

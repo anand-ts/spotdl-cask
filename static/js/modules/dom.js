@@ -1,0 +1,15 @@
+export const tblBody = document.querySelector('#tbl-body');
+export const tbl = document.getElementById('tbl');
+export const ph = document.getElementById('ph');
+export const allBtn = document.getElementById('allBtn');
+export const cancelAllBtn = document.getElementById('cancelAllBtn');
+export const removeAllBtn = document.getElementById('removeAllBtn');
+export const sidebar = document.getElementById('sidebar');
+export const overlay = document.getElementById('overlay');
+export const headerTitle = document.getElementById('headerTitle');
+export const compactToggleBtn = document.getElementById('compactToggleBtn');
+export const downloadDirPrompt = document.getElementById('downloadDirPrompt');
+export const downloadDirPromptPath = document.getElementById('downloadDirPromptPath');
+export const downloadDirSel = document.getElementById('downloadDirSel');
+export const downloadDirStatus = document.getElementById('downloadDirStatus');
+export const toastContainer = document.getElementById('toastContainer');

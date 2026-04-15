@@ -1,0 +1,66 @@
+body.compact-mode #zone {
+    padding: 1rem;
+}
+
+body.compact-mode th,
+body.compact-mode td {
+    padding: 0.45rem 0.65rem;
+    font-size: 0.82rem;
+    line-height: 1.2;
+}
+
+body.compact-mode .cover-header,
+body.compact-mode .cover-cell {
+    width: 122px;
+    min-width: 122px;
+    max-width: 122px;
+}
+
+body.compact-mode .cover-image {
+    width: 104px;
+    height: 104px;
+}
+
+body.compact-mode .status-cell .status {
+    gap: 0.35rem;
+}
+
+body.compact-mode .status-text {
+    font-size: 0.8rem;
+}
+
+body.compact-mode .actions-header,
+body.compact-mode .actions-cell {
+    width: 112px;
+    min-width: 112px;
+    max-width: 112px;
+}
+
+body.compact-mode .actions {
+    gap: 0.35rem;
+}
+
+body.compact-mode .actions button {
+    width: 30px;
+    height: 30px;
+    padding: 0.35rem;
+}
+
+body.compact-mode .progress-wrapper {
+    height: 16px;
+}
+
+body.compact-mode .progress-text {
+    font-size: 0.68rem;
+}
+
+@media (max-width: 720px) {
+    .directory-picker,
+    .startup-actions {
+        flex-direction: column;
+    }
+
+    .startup-card {
+        padding: 1.25rem;
+    }
+}

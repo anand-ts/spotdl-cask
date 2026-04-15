@@ -1,4 +1,4 @@
-"""Thin compatibility entrypoint for the application runtime."""
+"""Application package for runtime, routes, and shared infrastructure."""
 
 from __future__ import annotations
 
@@ -7,21 +7,21 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-from app import binaries as binaries_module
-from app.diagnostics import (
+from . import binaries as binaries_module
+from .diagnostics import (
     _configure_logging,
     _enable_terminal_diagnostics,
     _install_exception_logging,
     _SpotipyRateLimitFilter,
 )
-from app.runtime import (
+from .runtime import (
     SERVER_HOST,
     _ensure_server_can_bind,
     _should_probe_server_socket,
     main,
     run_server,
 )
-from app.web import create_app
+from .web import create_app
 
 
 def _resolve_binary_path(binary_name: str) -> Path | None:
@@ -39,7 +39,7 @@ def _resolve_binary_path(binary_name: str) -> Path | None:
 
 
 def _configure_bundled_spotdl_environment() -> None:
-    """Compatibility wrapper that keeps root-level test patching working."""
+    """Compatibility wrapper that keeps package-level test patching working."""
     mutable_binaries_module = cast(Any, binaries_module)
     original_sys = mutable_binaries_module.sys
     original_shutil = mutable_binaries_module.shutil
@@ -72,7 +72,3 @@ __all__ = [
     "shutil",
     "sys",
 ]
-
-
-if __name__ == "__main__":
-    main()

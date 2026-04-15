@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+cd "${ROOT_DIR}"
+
+if ! command -v node >/dev/null 2>&1; then
+    echo "Missing 'node'. Install Node.js to run the frontend syntax checks."
+    exit 1
+fi
+
+export UV_CACHE_DIR="${ROOT_DIR}/.uv-cache"
+
+resolve_bin() {
+    local tool_name="$1"
+    local venv_bin="${ROOT_DIR}/.venv/bin/${tool_name}"
+
+    if [[ -x "${venv_bin}" ]]; then
+        echo "${venv_bin}"
+        return 0
+    fi
+
+    if command -v "${tool_name}" >/dev/null 2>&1; then
+        command -v "${tool_name}"
+        return 0
+    fi
+
+    return 1
+}
+
+bootstrap_dev_dependencies() {
+    if ! command -v uv >/dev/null 2>&1; then
+        echo "Missing 'uv'. Install it from https://docs.astral.sh/uv/getting-started/installation/"
+        exit 1
+    fi
+
+    echo "Bootstrapping dev dependencies..."
+    uv sync --group dev
+}
+
+RUFF_BIN="$(resolve_bin ruff || true)"
+TY_BIN="$(resolve_bin ty || true)"
+TY_TARGETS=(app.py app config.py downloader.py spotify_client.py tests)
+
+if [[ -z "${RUFF_BIN}" || -z "${TY_BIN}" ]]; then
+    bootstrap_dev_dependencies
+    RUFF_BIN="$(resolve_bin ruff)"
+    TY_BIN="$(resolve_bin ty)"
+fi
+
+"${RUFF_BIN}" check .
+"${RUFF_BIN}" format --check .
+"${TY_BIN}" check "${TY_TARGETS[@]}"
+
+bash -n build-macos-app.sh dev lint lint-fix run setup test typecheck
+
+node --check static/js/app.js
+for file in static/js/modules/*.js; do
+    node --check "${file}"
+done

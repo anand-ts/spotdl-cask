@@ -1,0 +1,14 @@
+{
+  "name": "spotdl-cask",
+  "private": true,
+  "scripts": {
+    "dev": "./dev",
+    "lint": "./lint",
+    "lint:fix": "./lint-fix",
+    "start": "./run",
+    "sync": "./setup",
+    "setup": "./setup",
+    "test": "./test",
+    "typecheck": "./typecheck"
+  }
+}

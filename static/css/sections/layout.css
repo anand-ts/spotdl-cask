@@ -1,0 +1,146 @@
+body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    position: relative;
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+header {
+    background: var(--bg-secondary);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 2px solid var(--border-light);
+    position: relative;
+    z-index: 100;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+header h1 {
+    font-size: 1.15rem;
+    margin: 0;
+    flex: 1;
+    color: var(--text-primary);
+    transition: color 0.3s ease;
+    font-weight: 500;
+    /* Idle animation applied via the .idle class so we can pause it during activity */
+    background: linear-gradient(90deg, var(--text-primary) 0%, #1db954 50%, var(--text-primary) 100%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent; /* Fallback handled by background-clip; ensures gradient text */
+}
+
+/* More visible idle animation (only when .idle is present) */
+header h1.idle {
+    animation: headerIdleGlow 3s ease-in-out infinite, headerIdleGradient 10s linear infinite;
+}
+
+@keyframes headerIdleGlow {
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(29,185,84,0)); }
+    50% { filter: drop-shadow(0 0 6px rgba(29,185,84,0.55)); }
+}
+
+@keyframes headerIdleGradient {
+    0% { background-position: 0% 50%; }
+    100% { background-position: -200% 50%; }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    header h1.idle { animation: none; filter: none; }
+}
+
+.header-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+button {
+    padding: .6rem 1rem;
+    border: 1px solid var(--border-medium);
+    border-radius: 0;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    cursor: pointer;
+    font-size: .9rem;
+    transition: all .2s;
+    position: relative;
+    overflow: hidden;
+    font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+}
+
+button[disabled] {
+    opacity: .5;
+    cursor: default;
+    background: var(--bg-tertiary);
+    color: var(--text-tertiary);
+    border-color: var(--border-light);
+}
+
+button:hover:not([disabled]) {
+    background: var(--bg-tertiary);
+    border-color: var(--text-primary);
+}
+
+button:focus {
+    outline: 1px solid var(--text-primary);
+    outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible) {
+    outline: none;
+}
+
+select, input[type="text"] {
+    padding: .65rem .75rem;
+    border-radius: 0;
+    border: 2px solid var(--border-light);
+    font-size: .9rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+    font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+}
+
+select:focus, input[type="text"]:focus {
+    outline: none;
+    border-color: var(--text-primary);
+}
+
+.settings-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.compact-toggle-btn.active {
+    background: var(--text-primary);
+    color: var(--bg-secondary);
+    border-color: var(--text-primary);
+}
+
+.compact-toggle-btn.active:hover:not([disabled]) {
+    background: var(--text-primary);
+    color: var(--bg-secondary);
+    opacity: 0.92;
+}
+
+.dark-mode-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem !important;
+}
+
+#zone {
+    flex: 1;
+    overflow: auto;
+    padding: 1.5rem;
+    transition: margin-right .3s ease;
+}

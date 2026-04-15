@@ -1,13 +1,14 @@
 """Regression tests for fallback download input handling."""
 
 import json
-from pathlib import Path
 import unittest
+from pathlib import Path
+from typing import Any, cast
 
 from downloader import (
     DEFAULT_AUDIO_PROVIDERS,
-    DownloadManager,
     SAFE_FALLBACK_OUTPUT_TEMPLATE,
+    DownloadManager,
 )
 from spotify_client import SpotifyManager
 
@@ -71,7 +72,7 @@ class SpotifyDownloadInputTests(unittest.TestCase):
     def test_missing_fallback_uses_original_url(self) -> None:
         """If no fallback metadata can be built, fall back to the raw Spotify URL."""
         link = "https://open.spotify.com/track/no-fallback"
-        self.manager._build_fallback_song = lambda _link: None  # type: ignore[assignment]
+        cast(Any, self.manager)._build_fallback_song = lambda _link: None
 
         payload = self.manager.get_download_input(link)
 
