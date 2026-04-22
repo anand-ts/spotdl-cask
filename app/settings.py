@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
+from config import DEFAULT_DOWNLOAD_DIR, SETTINGS_DIR, SETTINGS_FILE
+
 
 class SettingsStore:
     """Persist and normalize app settings on disk."""
@@ -70,3 +72,15 @@ class SettingsStore:
         download_dir.mkdir(parents=True, exist_ok=True)
         self.save(download_dir=download_dir)
         return download_dir
+
+
+def create_default_settings_store() -> SettingsStore:
+    """Build the app's default persisted settings store."""
+    return SettingsStore(
+        default_download_dir=DEFAULT_DOWNLOAD_DIR,
+        settings_dir=SETTINGS_DIR,
+        settings_file=SETTINGS_FILE,
+    )
+
+
+default_settings_store = create_default_settings_store()

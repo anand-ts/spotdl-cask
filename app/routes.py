@@ -3,98 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from flask import Flask, jsonify, render_template, request
 
-from app.pickers import _best_initial_directory, _choose_directory
+from app.pickers import best_initial_directory, choose_directory
+from app.services.spotify import MetadataError
 from config import APP_NAME
-
-
-def _clean_metadata_text(value: Any) -> str:
-    """Normalize any metadata value into a clean string."""
-    if value is None:
-        return ""
-
-    return str(value).strip()
-
-
-def _coalesce_metadata_text(*values: Any) -> str:
-    """Return the first non-empty metadata string."""
-    for value in values:
-        cleaned = _clean_metadata_text(value)
-        if cleaned:
-            return cleaned
-
-    return ""
-
-
-def _stringify_artists(value: Any) -> str:
-    """Collapse artist list-style payloads into the UI's string shape."""
-    if isinstance(value, (list, tuple, set)):
-        artists = [
-            _clean_metadata_text(artist)
-            for artist in value
-            if _clean_metadata_text(artist)
-        ]
-        return ", ".join(artists)
-
-    return _clean_metadata_text(value)
-
-
-def _normalize_metadata_payload(payload: Any) -> dict[str, str]:
-    """Coerce legacy/raw metadata shapes into the route's public contract."""
-    if not isinstance(payload, dict):
-        return {
-            "title": "(unknown)",
-            "artist": "",
-            "album": "",
-            "cover": "",
-        }
-
-    title = _coalesce_metadata_text(
-        payload.get("title"),
-        payload.get("name"),
-        payload.get("track"),
-        payload.get("fulltitle"),
-    )
-    artist = _coalesce_metadata_text(
-        payload.get("artist"),
-        _stringify_artists(payload.get("artists")),
-        payload.get("artist_name"),
-        payload.get("author_name"),
-        payload.get("album_artist"),
-        payload.get("creator"),
-        payload.get("uploader"),
-        payload.get("channel"),
-    )
-    album = _coalesce_metadata_text(
-        payload.get("album"),
-        payload.get("album_name"),
-        payload.get("album_title"),
-        payload.get("playlist_title"),
-        payload.get("playlist"),
-        payload.get("collection"),
-    )
-    cover = _coalesce_metadata_text(
-        payload.get("cover"),
-        payload.get("cover_url"),
-        payload.get("thumbnail"),
-        payload.get("image"),
-    )
-
-    return {
-        "title": title or "(unknown)",
-        "artist": artist,
-        "album": album,
-        "cover": cover,
-    }
 
 
 def register_routes(
     app: Flask,
     *,
-    metadata_manager,
+    metadata_service,
     download_service,
     settings_store,
 ) -> None:
@@ -133,7 +53,9 @@ def register_routes(
     @app.route("/settings/download-directory/pick", methods=["POST"])
     def pick_download_directory_endpoint():
         """Open a native folder picker and persist the selected directory."""
-        chosen_dir = _choose_directory(_best_initial_directory())
+        chosen_dir = choose_directory(
+            best_initial_directory(settings_store.get_download_dir())
+        )
         if chosen_dir is None:
             payload = settings_store.load()
             payload["cancelled"] = True
@@ -152,14 +74,14 @@ def register_routes(
             return jsonify({"error": "Missing link"}), 400
 
         try:
-            metadata = metadata_manager.get_metadata(link)
-        except metadata_manager.metadata_error_class as exc:
+            metadata = metadata_service.get_metadata(link)
+        except MetadataError as exc:
             payload = {"error": str(exc), "code": exc.code}
             if exc.retry_after is not None:
                 payload["retry_after"] = exc.retry_after
             return jsonify(payload), 429 if exc.code == "rate_limited" else 502
 
-        return jsonify(_normalize_metadata_payload(metadata))
+        return jsonify(metadata)
 
     @app.route("/download", methods=["POST"])
     def download_endpoint():
@@ -176,12 +98,12 @@ def register_routes(
                 {"error": "Choose a download folder before starting downloads."}
             ), 409
 
-        settings = {key: value for key, value in data.items() if key != "link"}
-        download_input = metadata_manager.get_download_input(link)
+        settings = {
+            key: value
+            for key, value in data.items()
+            if key != "link"
+        }
         settings["_download_directory"] = str(download_dir)
-        settings["_download_input"] = download_input["input"]
-        settings["_temporary_input_file"] = download_input["temporary_input_file"]
-        settings["_fallback_missing_artist"] = download_input["fallback_missing_artist"]
 
         download_service.start_download(link, settings)
         return "", 204

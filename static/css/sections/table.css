@@ -252,6 +252,7 @@ progress::-webkit-progress-value {
 }
 
 .status-icon.idle { color: #999; }
+.status-icon.queued { color: #d17c00; }
 .status-icon.downloading { color: #2196F3; animation: pulse 1.5s ease-in-out infinite; }
 .status-icon.completed { color: var(--green); }
 .status-icon.error { color: #f44336; }
@@ -266,10 +267,4 @@ progress::-webkit-progress-value {
 @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.7; transform: scale(1.1); }
-}
-
-.progress-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }

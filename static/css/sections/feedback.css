@@ -1,4 +1,4 @@
-.overlay {
+#overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -11,7 +11,7 @@
     transition: all .3s;
 }
 
-.overlay.show { opacity: 1; visibility: visible; }
+#overlay.show { opacity: 1; visibility: visible; }
 
 .startup-modal {
     position: fixed;
@@ -101,6 +101,11 @@
     transition: width 0.3s ease;
 }
 
+.progress-wrapper.indeterminate .progress-bar {
+    position: relative;
+    animation: indeterminate-slide 1.2s ease-in-out infinite;
+}
+
 .progress-text {
     position: absolute;
     top: 0;
@@ -113,6 +118,15 @@
     font-size: 0.75rem;
     font-weight: 500;
     color: var(--text-primary);
+}
+
+@keyframes indeterminate-slide {
+    0% {
+        transform: translateX(-120%);
+    }
+    100% {
+        transform: translateX(260%);
+    }
 }
 
 .toast-container {
@@ -150,34 +164,7 @@
 .toast-close { background: none; border: none; cursor: pointer; padding: 4px; color: var(--text-tertiary); }
 .toast-close:hover { color: var(--text-primary); }
 
-.drop-zone.drag-over {
+.placeholder.drag-over {
     border-color: var(--text-primary);
     background: var(--bg-tertiary);
-}
-
-.loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(var(--bg-primary-rgb, 255, 255, 255), 0.9);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 999;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.3s ease;
-}
-
-.loading-overlay.show { opacity: 1; visibility: visible; }
-
-.loading-spinner-large {
-    width: 40px;
-    height: 40px;
-    border: 2px solid var(--border-light);
-    border-top: 2px solid var(--text-primary);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
 }

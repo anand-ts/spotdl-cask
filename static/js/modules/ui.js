@@ -29,16 +29,17 @@ export function markActivity() {
 
 export function startIdleMonitor() {
     setInterval(() => {
-        const anyDownloading = Object.keys(state.rows).some(link => {
+        const anyActive = Object.keys(state.rows).some(link => {
             const row = state.rows[link];
-            return row && row.querySelector('.status-text')?.textContent.trim() === 'Downloading...';
+            const text = row && row.querySelector('.status-text')?.textContent.trim();
+            return text === 'Downloading...' || text === 'Queued...';
         });
 
-        if (anyDownloading) {
+        if (anyActive) {
             markActivity();
         }
 
-        if (!anyDownloading && (Date.now() - state.lastActivityTs) > IDLE_ANIMATION_DELAY_MS) {
+        if (!anyActive && (Date.now() - state.lastActivityTs) > IDLE_ANIMATION_DELAY_MS) {
             setHeaderIdle(true);
         }
     }, 1500);
@@ -57,6 +58,7 @@ export function getStatusIcon(status) {
     const icons = {
         loading: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="loading-spinner"><path d="M21 12a9 9 0 11-6.219-8.56"></path></svg>`,
         idle: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"></circle></svg>`,
+        queued: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><circle cx="4" cy="6" r="1"></circle><circle cx="4" cy="12" r="1"></circle><circle cx="4" cy="18" r="1"></circle></svg>`,
         downloading: ``,
         completed: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"></path></svg>`,
         error: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`
@@ -68,6 +70,7 @@ export function getStatusText(status) {
     const texts = {
         loading: 'Loading...',
         idle: 'Ready',
+        queued: 'Queued...',
         downloading: 'Downloading...',
         completed: 'Downloaded',
         error: 'Error'
@@ -112,20 +115,38 @@ export function normalizeProgress(p) {
     return 1;
 }
 
-export function addProgressBar(element, progress = 0) {
+function setProgressPresentation(wrapper, bar, progress, indeterminate) {
+    if (!wrapper || !bar) return;
+
+    const text = wrapper.querySelector('.progress-text');
+    if (indeterminate) {
+        wrapper.classList.add('indeterminate');
+        bar.style.width = '42%';
+        if (text) text.textContent = 'Working...';
+        return;
+    }
+
+    wrapper.classList.remove('indeterminate');
+    const pct = normalizeProgress(progress);
+    bar.style.width = `${pct}%`;
+    if (text) text.textContent = `${Math.round(pct)}%`;
+}
+
+export function addProgressBar(element, progress = 0, indeterminate = false) {
     if (!element) return null;
     const existing = element.querySelector('.progress-wrapper');
-    if (existing) return existing.querySelector('.progress-bar');
+    if (existing) {
+        const existingBar = existing.querySelector('.progress-bar');
+        setProgressPresentation(existing, existingBar, progress, indeterminate);
+        return existingBar;
+    }
     const statusBlock = element.querySelector('.status');
     const wrapper = document.createElement('div');
     wrapper.className = 'progress-wrapper';
     const bar = document.createElement('div');
     bar.className = 'progress-bar';
-    const pct = normalizeProgress(progress);
-    bar.style.width = `${pct}%`;
     const text = document.createElement('div');
     text.className = 'progress-text';
-    text.textContent = `${Math.round(pct)}%`;
     wrapper.appendChild(bar);
     wrapper.appendChild(text);
     if (statusBlock) {
@@ -133,16 +154,14 @@ export function addProgressBar(element, progress = 0) {
     } else {
         element.appendChild(wrapper);
     }
+    setProgressPresentation(wrapper, bar, progress, indeterminate);
     return bar;
 }
 
-export function updateProgressBar(bar, progress) {
+export function updateProgressBar(bar, progress, indeterminate = false) {
     if (!bar) return;
-    const pct = normalizeProgress(progress);
-    bar.style.width = `${pct}%`;
     const wrapper = bar.parentElement;
-    const text = wrapper ? wrapper.querySelector('.progress-text') : null;
-    if (text) text.textContent = `${Math.round(pct)}%`;
+    setProgressPresentation(wrapper, bar, progress, indeterminate);
 }
 
 export function updateCompactToggleState(compact) {

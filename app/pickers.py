@@ -7,12 +7,11 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from config import DEFAULT_DOWNLOAD_DIR, get_download_dir
+from config import DEFAULT_DOWNLOAD_DIR
 
 
-def _best_initial_directory() -> Path:
+def best_initial_directory(configured_dir: Optional[Path] = None) -> Path:
     """Return the best existing directory to seed the folder picker."""
-    configured_dir = get_download_dir()
     if configured_dir and configured_dir.exists():
         return configured_dir
 
@@ -25,9 +24,9 @@ def _best_initial_directory() -> Path:
     return Path.home()
 
 
-def _choose_directory(initial_dir: Optional[Path] = None) -> Optional[Path]:
+def choose_directory(initial_dir: Optional[Path] = None) -> Optional[Path]:
     """Open a native folder picker and return the chosen directory, if any."""
-    initial_dir = initial_dir or _best_initial_directory()
+    initial_dir = initial_dir or best_initial_directory()
     if not initial_dir.exists():
         initial_dir = initial_dir.parent if initial_dir.parent.exists() else Path.home()
 

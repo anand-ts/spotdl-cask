@@ -85,7 +85,7 @@ def _install_exception_logging() -> None:
     threading.excepthook = _log_thread_exception
 
 
-def _enable_terminal_diagnostics() -> None:
+def enable_terminal_diagnostics() -> None:
     """Enable line-buffered logging and Python fault dumps."""
     _configure_logging()
     _install_exception_logging()

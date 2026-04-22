@@ -13,38 +13,34 @@ except ImportError as exc:
     ) from exc
 
 from app.routes import register_routes
-from config import settings_store
-from downloader import download_manager
-from spotify_client import MetadataError, spotify_manager
+from app.services.downloads import DownloadService
+from app.services.spotify import MetadataService
+from app.settings import default_settings_store
 
 LOGGER = logging.getLogger(__name__)
 
 
-def _resource_dir() -> Path:
-    """Return the resource root for source and frozen builds."""
-    import sys
-
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        return Path(sys._MEIPASS)
-
+def _project_root() -> Path:
+    """Return the source checkout root."""
     return Path(__file__).resolve().parent.parent
 
 
 def create_app(
     *,
-    metadata_manager=spotify_manager,
-    download_service=download_manager,
-    active_settings_store=settings_store,
+    metadata_service: MetadataService | None = None,
+    download_service: DownloadService | None = None,
+    active_settings_store=None,
 ) -> Flask:
     """Create and configure Flask application."""
-    resource_dir = _resource_dir()
+    resource_dir = _project_root()
     app = Flask(
         __name__,
         template_folder=str(resource_dir / "templates"),
         static_folder=str(resource_dir / "static"),
     )
-
-    metadata_manager.metadata_error_class = MetadataError
+    metadata_service = metadata_service or MetadataService()
+    download_service = download_service or DownloadService()
+    active_settings_store = active_settings_store or default_settings_store
 
     def _log_request_exception(sender, exception, **extra) -> None:
         LOGGER.exception(
@@ -70,7 +66,7 @@ def create_app(
 
     register_routes(
         app,
-        metadata_manager=metadata_manager,
+        metadata_service=metadata_service,
         download_service=download_service,
         settings_store=active_settings_store,
     )

@@ -1,11 +1,18 @@
-import { allBtn, cancelAllBtn, removeAllBtn } from './dom.js';
 import {
     cancelDownloadRequest,
     fetchStatuses,
     revealDownloadRequest,
     startDownloadRequest
 } from './api.js';
-import { state, hasDownloadDirectory } from './state.js';
+import {
+    updateCancelAllButtonState,
+    updateDownloadAllButtonState
+} from './controls.js';
+import { allBtn, cancelAllBtn, removeAllBtn } from './dom.js';
+import { addRow, rmRow, updateStatus } from './rows.js';
+import { removeSelectionForLink } from './selection.js';
+import { ensureDownloadDirectoryConfigured } from './settings.js';
+import { hasDownloadDirectory, state } from './state.js';
 import {
     addProgressBar,
     markActivity,
@@ -13,13 +20,6 @@ import {
     showToast,
     updateProgressBar
 } from './ui.js';
-import {
-    updateCancelAllButtonState,
-    updateDownloadAllButtonState
-} from './controls.js';
-import { ensureDownloadDirectoryConfigured } from './settings.js';
-import { addRow, rmRow, updateStatus } from './rows.js';
-import { removeSelectionForLink } from './selection.js';
 
 export function dlOne(link) {
     if (!state.rows[link]) return;
@@ -33,7 +33,7 @@ export function dlOne(link) {
     dlBtn.disabled = true;
     updateStatus(link, 'downloading');
     updateCancelAllButtonState();
-    addProgressBar(statusCell, 0);
+    addProgressBar(statusCell, 0, true);
 
     startDownloadRequest(link, state.settings)
         .catch(error => {
@@ -83,12 +83,16 @@ export function showInFinder(link) {
 
 export function startStatusPolling() {
     setInterval(() => {
-        const links = Object.keys(state.rows).filter(link => state.rows[link]?.dataset.status === 'downloading');
+        const links = Object.keys(state.rows).filter(link => {
+            const status = state.rows[link]?.dataset.status;
+            return status === 'downloading' || status === 'queued';
+        });
         if (!links.length) return;
 
         fetchStatuses(links).then(statuses => {
             let totalProgress = 0;
             let activeCount = 0;
+            let hasIndeterminateProgress = false;
 
             links.forEach(link => {
                 const data = statuses[link];
@@ -108,22 +112,30 @@ export function startStatusPolling() {
                 }
 
                 if (data.status === 'downloading') {
+                    const progressKnown = Boolean(data.progress_known);
                     let progressBar = state.rows[link].querySelector('.progress-bar');
                     if (!progressBar) {
                         const statusCell = state.rows[link].querySelector('.status-cell');
-                        progressBar = addProgressBar(statusCell, data.progress);
+                        progressBar = addProgressBar(statusCell, data.progress, !progressKnown);
                     }
-                    updateProgressBar(progressBar, data.progress);
-                    totalProgress += normalizeProgress(data.progress);
-                    activeCount += 1;
+                    updateProgressBar(progressBar, data.progress, !progressKnown);
+                    if (progressKnown) {
+                        totalProgress += normalizeProgress(data.progress);
+                        activeCount += 1;
+                    } else {
+                        hasIndeterminateProgress = true;
+                    }
                 }
             });
 
             updateDownloadAllButtonState();
-            if (activeCount > 0 && allBtn.innerHTML.includes('Downloading')) {
-                const aggPct = Math.round(totalProgress / activeCount);
+            if (allBtn.innerHTML.includes('Downloading')) {
                 const span = allBtn.querySelector('.agg-progress');
-                if (span) span.textContent = `${aggPct}%`;
+                if (span) {
+                    span.textContent = hasIndeterminateProgress || activeCount === 0
+                        ? '...'
+                        : `${Math.round(totalProgress / activeCount)}%`;
+                }
             }
         });
     }, 1000);
@@ -151,7 +163,7 @@ export function installDownloadControls() {
         showToast(`Starting download of ${linkCount} track${linkCount > 1 ? 's' : ''}...`, 'info', 3000);
         pendingLinks.forEach(dlOne);
 
-        allBtn.innerHTML = `<span class="agg-progress">0%</span> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="loading-spinner"><path d="M21 12a9 9 0 11-6.219-8.56"></path></svg> Downloading…`;
+        allBtn.innerHTML = `<span class="agg-progress">...</span> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="loading-spinner"><path d="M21 12a9 9 0 11-6.219-8.56"></path></svg> Downloading…`;
         allBtn.disabled = true;
         removeAllBtn.disabled = true;
         cancelAllBtn.disabled = false;
@@ -166,7 +178,7 @@ export function installDownloadControls() {
             const row = state.rows[link];
             if (!row) return false;
             const statusText = row.querySelector('.status-text')?.textContent.trim() || '';
-            return statusText === 'Downloading...';
+            return statusText === 'Downloading...' || statusText === 'Queued...';
         });
 
         if (!linksToCancel.length) {

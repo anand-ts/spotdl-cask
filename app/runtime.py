@@ -8,8 +8,7 @@ import socket
 import sys
 import threading
 
-from app.binaries import _configure_bundled_spotdl_environment
-from app.diagnostics import _enable_terminal_diagnostics
+from app.diagnostics import enable_terminal_diagnostics
 from app.web import create_app
 from config import APP_NAME, PORT, WINDOW_HEIGHT, WINDOW_WIDTH
 
@@ -60,16 +59,7 @@ def run_server(app) -> None:
 
 def main() -> None:
     """Main entry point for the application."""
-    _enable_terminal_diagnostics()
-
-    if "--run-spotdl" in sys.argv:
-        _configure_bundled_spotdl_environment()
-        helper_args = [arg for arg in sys.argv[1:] if arg != "--run-spotdl"]
-        from spotdl.console import console_entry_point
-
-        sys.argv = [sys.argv[0], *helper_args]
-        console_entry_point()
-        return
+    enable_terminal_diagnostics()
 
     try:
         import webview

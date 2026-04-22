@@ -1,7 +1,13 @@
-import { tblBody, tbl, ph, allBtn, removeAllBtn, cancelAllBtn } from './dom.js';
-import { state, hasDownloadDirectory } from './state.js';
-import { BUTTON_ICONS, DEFAULT_COVER_DATA_URI } from './constants.js';
 import { fetchMetadata } from './api.js';
+import { BUTTON_ICONS, DEFAULT_COVER_DATA_URI } from './constants.js';
+import {
+    updateCancelAllButtonState,
+    updateDownloadAllButtonState,
+    updateDownloadAvailability
+} from './controls.js';
+import { allBtn, cancelAllBtn, ph, removeAllBtn, tbl, tblBody } from './dom.js';
+import { handleRowSelection, removeSelectionForLink } from './selection.js';
+import { hasDownloadDirectory, state } from './state.js';
 import {
     getStatusIcon,
     getStatusText,
@@ -9,17 +15,11 @@ import {
     setCoverImage,
     showToast
 } from './ui.js';
-import { handleRowSelection, removeSelectionForLink } from './selection.js';
-import {
-    updateCancelAllButtonState,
-    updateDownloadAvailability,
-    updateDownloadAllButtonState
-} from './controls.js';
 
 let rowActions = {
-    dlOne: () => {},
-    cancelOne: () => {},
-    showInFinder: () => {}
+    dlOne: () => { },
+    cancelOne: () => { },
+    showInFinder: () => { }
 };
 
 export function setRowActionHandlers(actions) {
@@ -42,46 +42,15 @@ function createActionButton({ className, title, icon, hidden = false, onClick })
     return button;
 }
 
-function cleanMetadataText(value) {
-    if (value === null || value === undefined) {
-        return '';
-    }
-
-    return String(value).trim();
-}
-
-function stringifyArtists(value) {
-    if (Array.isArray(value)) {
-        return value.map(cleanMetadataText).filter(Boolean).join(', ');
-    }
-
-    return cleanMetadataText(value);
-}
-
-function normalizeMetadata(metadata) {
+function normalizeServerMetadata(metadata) {
     const payload = metadata && typeof metadata === 'object' ? metadata : {};
+    const asText = value => (value === null || value === undefined ? '' : String(value).trim());
 
     return {
-        cover: cleanMetadataText(payload.cover || payload.cover_url || payload.thumbnail || payload.image),
-        title: cleanMetadataText(payload.title || payload.name || payload.track || payload.fulltitle) || '(unknown)',
-        artist: cleanMetadataText(
-            payload.artist ||
-            stringifyArtists(payload.artists) ||
-            payload.artist_name ||
-            payload.author_name ||
-            payload.album_artist ||
-            payload.creator ||
-            payload.uploader ||
-            payload.channel
-        ),
-        album: cleanMetadataText(
-            payload.album ||
-            payload.album_name ||
-            payload.album_title ||
-            payload.playlist_title ||
-            payload.playlist ||
-            payload.collection
-        )
+        cover: asText(payload.cover),
+        title: asText(payload.title) || '(unknown)',
+        artist: asText(payload.artist),
+        album: asText(payload.album)
     };
 }
 
@@ -143,20 +112,20 @@ function createRowElement(link, data) {
     actionsCell.className = 'actions-cell';
     const actions = document.createElement('div');
     actions.className = 'actions';
-    const isDownloading = status === 'downloading';
+    const isActive = status === 'downloading' || status === 'queued';
 
     actions.appendChild(createActionButton({
         className: 'dlbtn',
         title: 'Download',
         icon: BUTTON_ICONS.download,
-        hidden: isDownloading,
+        hidden: isActive,
         onClick: () => rowActions.dlOne(link)
     }));
     actions.appendChild(createActionButton({
         className: 'cancelbtn',
         title: 'Cancel Download',
         icon: BUTTON_ICONS.cancel,
-        hidden: !isDownloading,
+        hidden: !isActive,
         onClick: () => rowActions.cancelOne(link)
     }));
     actions.appendChild(createActionButton({
@@ -224,7 +193,7 @@ export function updateRowData(link, data) {
             statusContainer.className = `status ${data.status}`;
         }
 
-        if (data.status === 'downloading') {
+        if (data.status === 'downloading' || data.status === 'queued') {
             if (dlBtn) { dlBtn.style.display = 'none'; dlBtn.disabled = true; }
             if (cancelBtn) { cancelBtn.style.display = 'flex'; cancelBtn.disabled = false; }
             if (revealBtn) { revealBtn.style.display = 'none'; revealBtn.disabled = true; }
@@ -339,7 +308,7 @@ export function addRow(link) {
     fetchMetadata(link)
         .then(metadata => {
             if (!state.rows[link]) return;
-            const normalizedMetadata = normalizeMetadata(metadata);
+            const normalizedMetadata = normalizeServerMetadata(metadata);
             updateRowData(link, {
                 cover: normalizedMetadata.cover,
                 title: normalizedMetadata.title,

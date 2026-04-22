@@ -10,7 +10,7 @@ export function updateDownloadAvailability() {
         if (!dlBtn) return;
 
         const status = row.dataset.status;
-        if (status === 'downloading') return;
+        if (status === 'downloading' || status === 'queued') return;
 
         dlBtn.disabled = !configured || status === 'completed';
     });
@@ -33,8 +33,11 @@ export function updateCancelAllButtonState() {
         return;
     }
 
-    const isAnyDownloading = allLinks.some(link => state.rows[link].dataset.status === 'downloading');
-    cancelAllBtn.disabled = !isAnyDownloading;
+    const isAnyActive = allLinks.some(link => {
+        const status = state.rows[link].dataset.status;
+        return status === 'downloading' || status === 'queued';
+    });
+    cancelAllBtn.disabled = !isAnyActive;
 }
 
 export function updateDownloadAllButtonState() {
@@ -45,8 +48,11 @@ export function updateDownloadAllButtonState() {
         return;
     }
 
-    const isAnyDownloading = allLinks.some(link => state.rows[link].dataset.status === 'downloading');
-    if (!isAnyDownloading) {
+    const isAnyActive = allLinks.some(link => {
+        const status = state.rows[link].dataset.status;
+        return status === 'downloading' || status === 'queued';
+    });
+    if (!isAnyActive) {
         resetDownloadAllButton();
     }
 
