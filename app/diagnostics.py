@@ -14,7 +14,7 @@ class _SpotipyRateLimitFilter(logging.Filter):
     """Drop expected spotipy 429 noise that we already handle gracefully."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        if record.name != "spotipy.client":
+        if record.name not in {"spotipy.client", "spotipy.util"}:
             return True
 
         message = record.getMessage().lower()
@@ -51,6 +51,7 @@ def _configure_logging() -> None:
     for handler in root_logger.handlers:
         handler.addFilter(rate_limit_filter)
 
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)
     logging.captureWarnings(True)
 
 

@@ -132,12 +132,16 @@ function setProgressPresentation(wrapper, bar, progress, indeterminate) {
     if (text) text.textContent = `${Math.round(pct)}%`;
 }
 
-export function addProgressBar(element, progress = 0, indeterminate = false) {
+export function addProgressBar(element, progress = 0, indeterminate = false, detail = '') {
     if (!element) return null;
     const existing = element.querySelector('.progress-wrapper');
     if (existing) {
         const existingBar = existing.querySelector('.progress-bar');
         setProgressPresentation(existing, existingBar, progress, indeterminate);
+        if (detail) {
+            const text = existing.querySelector('.progress-text');
+            if (text) text.textContent = detail;
+        }
         return existingBar;
     }
     const statusBlock = element.querySelector('.status');
@@ -155,13 +159,18 @@ export function addProgressBar(element, progress = 0, indeterminate = false) {
         element.appendChild(wrapper);
     }
     setProgressPresentation(wrapper, bar, progress, indeterminate);
+    if (detail) text.textContent = detail;
     return bar;
 }
 
-export function updateProgressBar(bar, progress, indeterminate = false) {
+export function updateProgressBar(bar, progress, indeterminate = false, detail = '') {
     if (!bar) return;
     const wrapper = bar.parentElement;
     setProgressPresentation(wrapper, bar, progress, indeterminate);
+    if (detail) {
+        const text = wrapper.querySelector('.progress-text');
+        if (text) text.textContent = detail;
+    }
 }
 
 export function updateCompactToggleState(compact) {

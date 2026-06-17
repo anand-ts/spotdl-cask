@@ -36,11 +36,11 @@ export async function fetchMetadata(link) {
     return parseJsonResponse(response, 'Failed to load track metadata');
 }
 
-export async function startDownloadRequest(link, settings) {
+export async function startDownloadRequest(link, settings, options = {}) {
     const response = await fetch('/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ link, ...settings })
+        body: JSON.stringify({ link, ...settings, ...options })
     });
 
     if (response.ok) {

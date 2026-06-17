@@ -5,11 +5,7 @@ export const state = {
     settings: {
         downloadDirectory: '',
         quality: 'best',
-        format: 'mp3',
-        output: '{artists} - {title}.{output-ext}',
-        playlistNumbering: false,
-        skipExplicit: false,
-        generateLrc: false
+        format: 'mp3'
     },
     settingsLoaded: false,
     lastStatusCache: {},

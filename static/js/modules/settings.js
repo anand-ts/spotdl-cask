@@ -61,6 +61,7 @@ export async function loadServerSettings() {
 
 export async function pickDownloadDirectory({ source = 'settings' } = {}) {
     markActivity();
+    showToast('Opening folder picker...', 'info', 1500);
 
     try {
         const data = await pickDownloadDirectoryRequest(source);
@@ -109,10 +110,6 @@ export function applySettings() {
     state.settings.downloadDirectory = normalizeDownloadDirectory(downloadDirSel ? downloadDirSel.value : state.settings.downloadDirectory);
     state.settings.quality = qualityRadio ? qualityRadio.value : 'best';
     state.settings.format = document.getElementById('formatSel').value;
-    state.settings.output = document.getElementById('outputSel').value;
-    state.settings.playlistNumbering = document.getElementById('playlistNumbering').checked;
-    state.settings.skipExplicit = document.getElementById('skipExplicit').checked;
-    state.settings.generateLrc = document.getElementById('generateLrc').checked;
 
     if (!hasDownloadDirectory()) {
         syncDownloadDirectoryUI();

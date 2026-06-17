@@ -1,4 +1,5 @@
 import { ph } from './dom.js';
+import { extractLinksFromText } from './links.js';
 import { addRow } from './rows.js';
 import { showToast } from './ui.js';
 
@@ -27,7 +28,7 @@ export function setupDragAndDrop() {
         const text = event.dataTransfer.getData('text');
         if (!text) return;
 
-        const links = text.split(/[\s,]+/).filter(token => token.startsWith('http'));
+        const links = extractLinksFromText(text);
         if (!links.length) return;
 
         showToast(`Processing ${links.length} link${links.length > 1 ? 's' : ''}...`, 'info');

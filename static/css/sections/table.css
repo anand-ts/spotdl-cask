@@ -63,9 +63,9 @@ th {
 }
 
 .actions-header, .actions-cell {
-    width: 130px;
-    min-width: 130px;
-    max-width: 130px;
+    width: 176px;
+    min-width: 176px;
+    max-width: 176px;
     text-align: center;
     vertical-align: middle;
 }
@@ -212,6 +212,18 @@ tbody tr:focus-visible {
 .revealbtn:hover:not([disabled]) {
     background: #179646;
     border-color: #179646;
+}
+
+.sourcebtn {
+    background: #f4f7ff;
+    color: #1c4ed8;
+    border-color: #1c4ed8;
+    border-width: 2px;
+}
+
+.sourcebtn:hover:not([disabled]) {
+    background: #e8efff;
+    border-color: #143aa3;
 }
 
 .placeholder {

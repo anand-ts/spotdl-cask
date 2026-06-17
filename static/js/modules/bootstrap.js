@@ -6,6 +6,7 @@ import {
     startStatusPolling,
     dlOne,
     cancelOne,
+    retryWithSource,
     showInFinder
 } from './downloads.js';
 import {
@@ -28,7 +29,7 @@ import {
 import { updateCancelAllButtonState, updateDownloadAllButtonState } from './controls.js';
 
 export async function initializeApp() {
-    setRowActionHandlers({ dlOne, cancelOne, showInFinder });
+    setRowActionHandlers({ dlOne, cancelOne, retryWithSource, showInFinder });
     installSelectionShortcuts();
     installDownloadControls();
     installPasteHandler();

@@ -14,9 +14,4 @@ fi
 export UV_CACHE_DIR="${ROOT_DIR}/.uv-cache"
 export PYTHONUNBUFFERED=1
 
-if [[ ! -x "${ROOT_DIR}/.venv/bin/python" ]]; then
-    echo "Bootstrapping dependencies..."
-    uv sync
-fi
-
-exec "${ROOT_DIR}/.venv/bin/python" app.py --dev "$@"
+exec uv run python app.py --dev "$@"

@@ -12,10 +12,10 @@ except ImportError as exc:
         "Missing app dependencies. Run `./setup`, then `./dev` or `./run`."
     ) from exc
 
+from app.backend.jobs import DownloadSupervisor
+from app.backend.metadata import MetadataService
+from app.backend.settings import default_settings_store
 from app.routes import register_routes
-from app.services.downloads import DownloadService
-from app.services.spotify import MetadataService
-from app.settings import default_settings_store
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ def _project_root() -> Path:
 def create_app(
     *,
     metadata_service: MetadataService | None = None,
-    download_service: DownloadService | None = None,
+    download_service: DownloadSupervisor | None = None,
     active_settings_store=None,
 ) -> Flask:
     """Create and configure Flask application."""
@@ -39,7 +39,7 @@ def create_app(
         static_folder=str(resource_dir / "static"),
     )
     metadata_service = metadata_service or MetadataService()
-    download_service = download_service or DownloadService()
+    download_service = download_service or DownloadSupervisor(metadata_service)
     active_settings_store = active_settings_store or default_settings_store
 
     def _log_request_exception(sender, exception, **extra) -> None:

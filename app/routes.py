@@ -1,4 +1,4 @@
-"""Flask route registration for the desktop/web app."""
+"""Thin Flask route registration for the desktop/web app."""
 
 from __future__ import annotations
 
@@ -6,8 +6,10 @@ from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
 
-from app.pickers import best_initial_directory, choose_directory
-from app.services.spotify import MetadataError
+from app.backend.inputs import UnsupportedInputError
+from app.backend.metadata import MetadataError
+from app.backend.os import best_initial_directory, choose_directory
+from app.backend.settings import build_download_request
 from config import APP_NAME
 
 
@@ -66,28 +68,27 @@ def register_routes(
 
     @app.route("/meta", methods=["POST"])
     def meta_endpoint():
-        """Get song metadata from Spotify/YouTube link."""
-        data = request.get_json(force=True)
-        link = data.get("link", "")
+        """Fetch best-effort metadata without blocking the main app process."""
+        data = request.get_json(force=True) or {}
+        link = str(data.get("link") or "").strip()
 
         if not link:
             return jsonify({"error": "Missing link"}), 400
 
         try:
             metadata = metadata_service.get_metadata(link)
+        except UnsupportedInputError as exc:
+            return jsonify({"error": str(exc)}), 400
         except MetadataError as exc:
-            payload = {"error": str(exc), "code": exc.code}
-            if exc.retry_after is not None:
-                payload["retry_after"] = exc.retry_after
-            return jsonify(payload), 429 if exc.code == "rate_limited" else 502
+            return jsonify({"error": str(exc), "code": exc.code}), exc.status_code
 
         return jsonify(metadata)
 
     @app.route("/download", methods=["POST"])
     def download_endpoint():
-        """Start download with user settings."""
-        data = request.get_json(force=True)
-        link = data.get("link", "")
+        """Queue a download immediately and let the supervisor own the rest."""
+        data = request.get_json(force=True) or {}
+        link = str(data.get("link") or "").strip()
 
         if not link:
             return "", 400
@@ -98,14 +99,11 @@ def register_routes(
                 {"error": "Choose a download folder before starting downloads."}
             ), 409
 
-        settings = {
-            key: value
-            for key, value in data.items()
-            if key != "link"
-        }
-        settings["_download_directory"] = str(download_dir)
-
-        download_service.start_download(link, settings)
+        try:
+            download_request = build_download_request(data, download_dir=download_dir)
+            download_service.start_download(link, download_request)
+        except UnsupportedInputError as exc:
+            return jsonify({"error": str(exc)}), 400
         return "", 204
 
     @app.route("/status")

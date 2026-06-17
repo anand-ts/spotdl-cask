@@ -19,8 +19,13 @@ import {
 let rowActions = {
     dlOne: () => { },
     cancelOne: () => { },
+    retryWithSource: () => { },
     showInFinder: () => { }
 };
+
+const METADATA_FETCH_CONCURRENCY = 2;
+let activeMetadataFetches = 0;
+const pendingMetadataFetches = [];
 
 export function setRowActionHandlers(actions) {
     rowActions = { ...rowActions, ...actions };
@@ -52,6 +57,32 @@ function normalizeServerMetadata(metadata) {
         artist: asText(payload.artist),
         album: asText(payload.album)
     };
+}
+
+function drainMetadataQueue() {
+    while (activeMetadataFetches < METADATA_FETCH_CONCURRENCY && pendingMetadataFetches.length) {
+        const job = pendingMetadataFetches.shift();
+        if (!state.rows[job.link]) {
+            job.resolve(null);
+            continue;
+        }
+
+        activeMetadataFetches += 1;
+        fetchMetadata(job.link)
+            .then(job.resolve)
+            .catch(job.reject)
+            .finally(() => {
+                activeMetadataFetches -= 1;
+                drainMetadataQueue();
+            });
+    }
+}
+
+function enqueueMetadataFetch(link) {
+    return new Promise((resolve, reject) => {
+        pendingMetadataFetches.push({ link, resolve, reject });
+        drainMetadataQueue();
+    });
 }
 
 function createStatusElement(status) {
@@ -122,6 +153,13 @@ function createRowElement(link, data) {
         onClick: () => rowActions.dlOne(link)
     }));
     actions.appendChild(createActionButton({
+        className: 'sourcebtn',
+        title: 'Retry with Source URL',
+        icon: BUTTON_ICONS.source,
+        hidden: isActive || status === 'completed',
+        onClick: () => rowActions.retryWithSource(link)
+    }));
+    actions.appendChild(createActionButton({
         className: 'cancelbtn',
         title: 'Cancel Download',
         icon: BUTTON_ICONS.cancel,
@@ -168,6 +206,7 @@ export function updateRowData(link, data) {
     const statusIcon = row.querySelector('.status-icon');
     const statusText = row.querySelector('.status-text');
     const dlBtn = row.querySelector('.dlbtn');
+    const sourceBtn = row.querySelector('.sourcebtn');
     const cancelBtn = row.querySelector('.cancelbtn');
     const revealBtn = row.querySelector('.revealbtn');
     const removeBtn = row.querySelector('.xbtn');
@@ -195,11 +234,13 @@ export function updateRowData(link, data) {
 
         if (data.status === 'downloading' || data.status === 'queued') {
             if (dlBtn) { dlBtn.style.display = 'none'; dlBtn.disabled = true; }
+            if (sourceBtn) { sourceBtn.style.display = 'none'; sourceBtn.disabled = true; }
             if (cancelBtn) { cancelBtn.style.display = 'flex'; cancelBtn.disabled = false; }
             if (revealBtn) { revealBtn.style.display = 'none'; revealBtn.disabled = true; }
             if (removeBtn) { removeBtn.disabled = true; }
         } else if (data.status === 'completed') {
             if (dlBtn) { dlBtn.style.display = 'none'; dlBtn.disabled = true; }
+            if (sourceBtn) { sourceBtn.style.display = 'none'; sourceBtn.disabled = true; }
             if (cancelBtn) { cancelBtn.style.display = 'none'; cancelBtn.disabled = true; }
             if (revealBtn) {
                 revealBtn.style.display = canReveal ? 'flex' : 'none';
@@ -208,6 +249,7 @@ export function updateRowData(link, data) {
             if (removeBtn) { removeBtn.disabled = false; }
         } else {
             if (dlBtn) { dlBtn.style.display = 'flex'; dlBtn.disabled = !hasDownloadDirectory(); }
+            if (sourceBtn) { sourceBtn.style.display = 'flex'; sourceBtn.disabled = !hasDownloadDirectory(); }
             if (cancelBtn) { cancelBtn.style.display = 'none'; cancelBtn.disabled = true; }
             if (revealBtn) { revealBtn.style.display = 'none'; revealBtn.disabled = true; }
             if (removeBtn) { removeBtn.disabled = false; }
@@ -305,8 +347,9 @@ export function addRow(link) {
         });
     });
 
-    fetchMetadata(link)
+    enqueueMetadataFetch(link)
         .then(metadata => {
+            if (!metadata) return;
             if (!state.rows[link]) return;
             const normalizedMetadata = normalizeServerMetadata(metadata);
             updateRowData(link, {

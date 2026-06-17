@@ -10,6 +10,7 @@ import {
 } from './controls.js';
 import { allBtn, cancelAllBtn, removeAllBtn } from './dom.js';
 import { addRow, rmRow, updateStatus } from './rows.js';
+import { extractLinksFromText } from './links.js';
 import { removeSelectionForLink } from './selection.js';
 import { ensureDownloadDirectoryConfigured } from './settings.js';
 import { hasDownloadDirectory, state } from './state.js';
@@ -21,7 +22,7 @@ import {
     updateProgressBar
 } from './ui.js';
 
-export function dlOne(link) {
+export function dlOne(link, options = {}) {
     if (!state.rows[link]) return;
     if (!ensureDownloadDirectoryConfigured()) return;
     markActivity();
@@ -33,9 +34,9 @@ export function dlOne(link) {
     dlBtn.disabled = true;
     updateStatus(link, 'downloading');
     updateCancelAllButtonState();
-    addProgressBar(statusCell, 0, true);
+    addProgressBar(statusCell, 0, true, 'Queueing...');
 
-    startDownloadRequest(link, state.settings)
+    startDownloadRequest(link, state.settings, options)
         .catch(error => {
             console.error('Download start failed:', error);
             updateStatus(link, 'error');
@@ -43,6 +44,18 @@ export function dlOne(link) {
             updateDownloadAllButtonState();
             showToast(error.message || 'Download failed', 'error', 4000);
         });
+}
+
+export function retryWithSource(link) {
+    if (!state.rows[link]) return;
+    const sourceUrl = window.prompt('Paste a YouTube, SoundCloud, or direct media URL for this row');
+    const cleaned = (sourceUrl || '').trim();
+    if (!cleaned) return;
+    if (!/^https?:\/\//i.test(cleaned)) {
+        showToast('Source URL must start with http:// or https://', 'error', 3500);
+        return;
+    }
+    dlOne(link, { sourceUrl: cleaned });
 }
 
 export function cancelOne(link) {
@@ -108,6 +121,12 @@ export function startStatusPolling() {
 
                 if (newStatusName === 'error' && data.error_message && state.lastErrorCache[link] !== data.error_message) {
                     state.lastErrorCache[link] = data.error_message;
+                    console.error('Download failed:', {
+                        link,
+                        error: data.error_message,
+                        logPath: data.log_path,
+                        stderrTail: data.stderr_tail || []
+                    });
                     showToast(data.error_message, 'error', 7000);
                 }
 
@@ -116,9 +135,9 @@ export function startStatusPolling() {
                     let progressBar = state.rows[link].querySelector('.progress-bar');
                     if (!progressBar) {
                         const statusCell = state.rows[link].querySelector('.status-cell');
-                        progressBar = addProgressBar(statusCell, data.progress, !progressKnown);
+                        progressBar = addProgressBar(statusCell, data.progress, !progressKnown, data.detail || '');
                     }
-                    updateProgressBar(progressBar, data.progress, !progressKnown);
+                    updateProgressBar(progressBar, data.progress, !progressKnown, data.detail || '');
                     if (progressKnown) {
                         totalProgress += normalizeProgress(data.progress);
                         activeCount += 1;
@@ -207,7 +226,7 @@ export function installPasteHandler() {
     document.addEventListener('paste', event => {
         markActivity();
         const text = (event.clipboardData || window.clipboardData).getData('text');
-        const links = text.split(/[\s,]+/).filter(token => token.startsWith('http'));
+        const links = extractLinksFromText(text);
         if (!links.length) {
             showToast('No valid links found in clipboard', 'info', 2000);
             return;
